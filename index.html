@@ -1,0 +1,3070 @@
+<!DOCTYPE html>
+<html lang="ja"><head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#ffffff">
+<title>マンション工事 施工・工程管理</title>
+<style>
+  :root{
+    --bg:#f8f9fa; --panel:#fff; --ink:#202124; --ink-soft:#5f6368; --line:#e8eaed;
+    --line-strong:#dadce0;
+    --accent:#1a73e8; --accent-press:#1765cc; --accent-soft:#e8f0fe;
+    --todo:#9aa0a6; --doing:#f9ab00; --done:#1e8e3e; --danger:#d93025;
+    --common:#a142f4;
+    --shadow:0 1px 2px 0 rgba(60,64,67,.20),0 1px 3px 1px rgba(60,64,67,.08);
+    --shadow-sm:0 1px 2px 0 rgba(60,64,67,.14);
+    --shadow-lg:0 4px 8px 3px rgba(60,64,67,.15),0 1px 3px rgba(60,64,67,.30);
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;padding:0}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"Hiragino Kaku Gothic ProN","Hiragino Sans","Noto Sans JP","Yu Gothic","YuGothic",sans-serif;
+    background:var(--bg);color:var(--ink);-webkit-text-size-adjust:100%;line-height:1.5;
+    font-feature-settings:"palt" 1;letter-spacing:.01em;
+  }
+  header{
+    position:sticky;top:0;z-index:20;background:var(--panel);color:var(--ink);
+    padding:calc(env(safe-area-inset-top) + 10px) 8px 10px 14px;
+    display:flex;align-items:center;gap:6px;border-bottom:1px solid var(--line);
+  }
+  header .back{background:none;border:none;color:var(--ink-soft);width:40px;height:40px;
+    border-radius:50%;font-size:23px;display:none;align-items:center;justify-content:center;flex:0 0 auto;transition:background .12s}
+  header .back:active{background:#f1f3f4}
+  header .menu{background:none;border:none;color:var(--ink-soft);width:40px;height:40px;
+    border-radius:50%;font-size:22px;display:flex;align-items:center;justify-content:center;flex:0 0 auto;transition:background .12s}
+  header .menu:active{background:#f1f3f4}
+  header .htxt{flex:1 1 auto;min-width:0}
+  header .htitle{font-size:12px;color:var(--ink-soft);font-weight:400;letter-spacing:0}
+  header .hsite{font-size:20px;font-weight:500;letter-spacing:0;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  header .gear{display:none;background:none;border:none;color:var(--accent);border-radius:20px;
+    padding:9px 14px;font-size:14px;font-weight:500;flex:0 0 auto;transition:background .12s}
+  header .gear:active{background:var(--accent-soft)}
+
+  main{padding:14px 14px calc(env(safe-area-inset-bottom) + 92px);max-width:680px;margin:0 auto}
+  .view{display:none}
+  .view.active{display:block}
+
+  .floor-head{font-size:13px;font-weight:500;color:var(--ink-soft);margin:20px 4px 8px;
+    display:flex;align-items:center;gap:10px;letter-spacing:0}
+  .floor-head.common{color:var(--common)}
+  .floor-head::after{content:"";flex:1;height:1px;background:var(--line)}
+
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;
+    box-shadow:var(--shadow);margin-bottom:8px;overflow:hidden;transition:box-shadow .15s,transform .06s}
+  .loc{display:flex;align-items:stretch;width:100%;text-align:left;background:none;border:none;padding:0;cursor:pointer}
+  .loc:active{background:#f1f3f4}
+  .loc-bar{width:6px;flex:0 0 auto}
+  .loc-body{flex:1 1 auto;padding:14px 15px;min-width:0}
+  .loc-name{font-size:16px;font-weight:500;letter-spacing:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .loc-meta{font-size:12px;color:var(--ink-soft);margin-top:4px;display:flex;gap:12px}
+  .loc-chev{align-self:center;color:#bdc1c6;font-size:20px;padding-right:13px;flex:0 0 auto}
+
+  .badge{display:inline-block;font-size:11px;font-weight:500;color:#fff;padding:3px 9px;border-radius:8px;line-height:1.4;letter-spacing:0}
+  .b-todo{background:var(--todo)}.b-doing{background:var(--doing);color:#5d4000}.b-done{background:var(--done)}
+
+  .detail-title-row{display:flex;align-items:center;gap:8px;margin:4px 4px 2px}
+  .detail-title{font-size:22px;font-weight:500;letter-spacing:0;flex:1;word-break:break-word}
+  .detail-rename{background:var(--accent-soft);border:none;border-radius:9px;color:var(--accent);
+    font-size:12px;font-weight:700;padding:8px 12px;flex:0 0 auto;white-space:nowrap}
+  .detail-rename:active{background:#d2e3fc}
+  .detail-sub{font-size:13px;color:var(--ink-soft);margin:0 4px 16px}
+
+  .section{background:var(--panel);border:1px solid var(--line);border-radius:12px;
+    box-shadow:var(--shadow);padding:16px;margin-bottom:12px}
+  .section h2{font-size:14px;font-weight:500;color:var(--ink);margin:0 0 14px;letter-spacing:0}
+
+  .status-row{display:flex;gap:8px}
+  .status-btn{flex:1;border:2px solid var(--line);background:#fff;border-radius:12px;padding:12px 4px;
+    font-size:14px;font-weight:700;color:var(--ink-soft);display:flex;flex-direction:column;align-items:center;gap:6px;cursor:pointer;transition:border-color .12s,background .12s}
+  .status-btn .dot{width:12px;height:12px;border-radius:50%;background:var(--todo)}
+  .status-btn[data-s="doing"] .dot{background:var(--doing)}
+  .status-btn[data-s="done"] .dot{background:var(--done)}
+  .status-btn.sel[data-s="todo"]{border-color:var(--todo);background:#f4f6f8;color:var(--ink)}
+  .status-btn.sel[data-s="doing"]{border-color:var(--doing);background:#fef6e7;color:#92500a}
+  .status-btn.sel[data-s="done"]{border-color:var(--done);background:#e9f7ee;color:#0f6b2e}
+
+  /* 折りたたみフロア */
+  .floor-group{margin-bottom:8px;border:1px solid var(--line);border-radius:12px;background:var(--panel);box-shadow:var(--shadow);overflow:hidden}
+  .floor-group>summary{list-style:none;padding:13px 14px;display:flex;align-items:center;gap:10px;cursor:pointer}
+  .floor-group>summary::-webkit-details-marker{display:none}
+  .fs-name{font-size:16px;font-weight:500}
+  .fs-stat{font-size:12px;color:var(--ink-soft);font-weight:600;margin-left:auto}
+  .fs-tw{color:#b4bfca;font-size:15px;transition:transform .15s;flex:0 0 auto}
+  .floor-group[open]>summary .fs-tw{transform:rotate(90deg)}
+  .floor-group.common>summary .fs-name{color:var(--common)}
+  .floor-rooms{padding:2px 10px 10px}
+  .floor-rooms .card{box-shadow:none}
+  .common-sub-head{font-size:12px;font-weight:800;color:var(--common);margin:8px 4px 6px;padding-bottom:3px;border-bottom:1px solid #e9defb}
+  .common-sub-head:first-child{margin-top:2px}
+  /* 一覧：共用部の中のフロア入れ子グループ */
+  .floor-group.common-nested{box-shadow:none;border-color:#e9defb;background:#fbf9ff;margin:0 0 8px}
+  .floor-group.common-nested:last-child{margin-bottom:2px}
+  .floor-group.common-nested>summary{padding:11px 12px}
+  .floor-group.common-nested>summary .fs-name{font-size:14px;color:var(--common)}
+  .floor-group.common-nested .floor-rooms{padding:2px 8px 8px}
+
+  /* 工程の進捗（詳細） */
+  .proc-row{display:flex;align-items:center;gap:11px;width:100%;text-align:left;background:#fff;
+    border:1.5px solid var(--line);border-radius:10px;padding:12px;margin-bottom:8px;cursor:pointer}
+  .proc-row:last-child{margin-bottom:0}
+  .proc-dot{width:14px;height:14px;border-radius:50%;background:var(--todo);flex:0 0 auto}
+  .proc-row.doing{border-color:#f6d488;background:#fffdf7}
+  .proc-row.doing .proc-dot{background:var(--doing)}
+  .proc-row.done{border-color:#a7e0bb;background:#fbfefc}
+  .proc-row.done .proc-dot{background:var(--done)}
+  .proc-name{flex:1;font-size:15px;font-weight:600;word-break:break-word}
+  .proc-stat{font-size:12px;font-weight:700;color:var(--ink-soft);padding:3px 10px;border-radius:999px;background:#f1f4f7;flex:0 0 auto}
+  .proc-row.doing .proc-stat{color:#92500a;background:#fef0d6}
+  .proc-row.done .proc-stat{color:#0f6b2e;background:#dcf2e4}
+  .proc-quick{display:flex;gap:8px;margin-top:12px}
+  .btn-mini{flex:1;border:1px solid var(--line);background:#fff;border-radius:9px;padding:10px;font-size:12px;font-weight:700;color:var(--ink-soft)}
+  .btn-mini:active{background:#eef1f4}
+
+  /* 工程の編集（設定） */
+  .proc-edit{display:flex;align-items:center;gap:6px;padding:8px 0;border-bottom:1px solid var(--line)}
+  .proc-edit:last-child{border-bottom:none}
+  .pe-name{flex:1;text-align:left;background:none;border:none;font-size:15px;font-weight:600;color:var(--ink);padding:6px 2px}
+  .pe-up,.pe-down{background:#f1f4f7;border:none;border-radius:7px;width:34px;height:34px;font-size:12px;color:var(--ink-soft);flex:0 0 auto}
+  .pe-up:disabled,.pe-down:disabled{opacity:.3}
+  .pe-del{background:none;border:none;color:var(--danger);font-size:12px;font-weight:600;padding:6px;flex:0 0 auto}
+
+  /* 詳細の分類タブ（躯体/内装） */
+  .cat-tabs{display:flex;gap:5px;margin:0 0 14px;background:#eaeef3;padding:4px;border-radius:12px}
+  .cat-tab{flex:1;border:none;background:none;padding:9px 6px;font-size:13px;font-weight:700;color:var(--ink-soft);border-radius:9px;cursor:pointer;line-height:1.25;transition:background .12s,color .12s}
+  .cat-tab .ct-count{display:block;font-size:11px;font-weight:600;opacity:.85;margin-top:2px}
+  .cat-tab.active{background:#fff;color:var(--ink);box-shadow:var(--shadow-sm)}
+  /* 設定：工程の分類まわり */
+  .proc-new-cat{flex:1 1 100%;border:1.5px solid var(--line);border-radius:9px;padding:9px;font-size:14px;font-family:inherit;background:#fff;color:var(--ink)}
+  .pe-move{background:#eef1f4;border:none;border-radius:7px;padding:0 8px;height:34px;font-size:11px;font-weight:700;color:var(--ink-soft);flex:0 0 auto;white-space:nowrap}
+  .proc-cat-head{font-size:13px;font-weight:800;color:var(--ink-soft);margin:16px 0 2px;padding-bottom:5px;border-bottom:2px solid var(--line)}
+  .proc-cat-head:first-child{margin-top:0}
+  .proc-cat-empty{font-size:12px;color:var(--ink-soft);padding:6px 2px;opacity:.7}
+
+  .photo-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+  .photo-grid .ph{position:relative;aspect-ratio:1;border-radius:9px;overflow:hidden;background:#e5e9ee}
+  .photo-grid .ph img{width:100%;height:100%;object-fit:cover;display:block}
+  .photo-grid .ph .del{position:absolute;top:4px;right:4px;width:24px;height:24px;border-radius:50%;
+    background:rgba(27,39,51,.72);color:#fff;border:none;font-size:14px;line-height:1;display:flex;align-items:center;justify-content:center}
+  .add-photo{aspect-ratio:1;border:2px dashed #c2ccd6;border-radius:9px;background:#fafbfc;color:var(--ink-soft);
+    font-size:12px;font-weight:600;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;cursor:pointer}
+  .add-photo:active{background:#eef1f4}
+  .add-photo .ic{font-size:24px;line-height:1}
+
+  .note{border:1px solid var(--line);border-radius:10px;padding:11px 12px;margin-bottom:10px;background:#fff}
+  .note:last-child{margin-bottom:0}
+  .note-top{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+  .note-text{font-size:14px;white-space:pre-wrap;word-break:break-word;flex:1}
+  .note-del{background:none;border:none;color:var(--danger);font-size:12px;padding:2px 4px;flex:0 0 auto}
+  .note-photos{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:10px}
+  .note-photos img{width:100%;aspect-ratio:1;object-fit:cover;border-radius:7px;background:#e5e9ee}
+
+  .empty{color:var(--ink-soft);font-size:13px;text-align:center;padding:14px 0}
+
+  .btn{display:block;width:100%;border:none;border-radius:20px;padding:13px;font-size:15px;font-weight:500;cursor:pointer;letter-spacing:0;transition:background .12s,box-shadow .12s,transform .06s}
+  .btn:active{transform:translateY(1px)}
+  .btn-primary{background:var(--accent);color:#fff;box-shadow:var(--shadow-sm)}.btn-primary:active{background:var(--accent-press)}
+  .btn-ghost{background:#fff;color:var(--accent);border:1px solid var(--line-strong)}
+  .btn-soft{background:#fff;color:var(--accent);border:1px solid var(--line-strong)}
+  .btn-soft:active{background:var(--accent-soft)}
+  body.worker-mode #backBtn, body.worker-mode #gearBtn, body.worker-mode #menuBtn{ display:none !important; }
+  .btn-danger-text{background:none;color:var(--danger);font-weight:600;font-size:13px;padding:10px;width:100%;border:none}
+
+  .fab{position:fixed;right:16px;bottom:calc(env(safe-area-inset-bottom) + 16px);z-index:30;
+    background:var(--accent);color:#fff;border:none;border-radius:16px;padding:16px 22px;font-size:15px;font-weight:500;
+    box-shadow:0 1px 3px rgba(60,64,67,.3),0 4px 8px 3px rgba(60,64,67,.15);display:flex;align-items:center;gap:9px;transition:transform .08s,box-shadow .15s}
+  .fab:active{background:var(--accent-press);transform:scale(.97)}
+
+  /* ---- 現場設定 ---- */
+  .setup-card{background:var(--panel);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);margin-bottom:12px;overflow:hidden}
+  .setup-card>summary{list-style:none;padding:15px 14px;font-size:15px;font-weight:700;cursor:pointer;
+    display:flex;align-items:center;gap:9px}
+  .setup-card>summary::-webkit-details-marker{display:none}
+  .setup-card>summary .tw{margin-left:auto;color:#b4bfca;font-size:13px;transition:transform .15s}
+  .setup-card[open]>summary .tw{transform:rotate(90deg)}
+  .setup-card .ico{width:26px;height:26px;border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:15px;color:#fff;flex:0 0 auto}
+  .setup-body{padding:0 14px 16px}
+  .row2{display:flex;gap:10px}
+  .row2>.field{flex:1}
+  .field{margin-bottom:12px}
+  .field label{display:block;font-size:12px;font-weight:700;color:var(--ink-soft);margin-bottom:6px}
+  .field input,.field select,.field textarea{width:100%;border:1.5px solid var(--line-strong);border-radius:11px;padding:12px;
+    font-size:16px;font-family:inherit;background:#fff;color:var(--ink);transition:border-color .12s,box-shadow .12s}
+  .field input:focus,.field select:focus,.field textarea:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+  .field textarea{min-height:90px;resize:vertical}
+  .preview{font-size:12px;color:var(--ink-soft);background:#f4f6f8;border-radius:8px;padding:9px 11px;margin-bottom:12px;word-break:break-word}
+  .fill-btns{display:flex;gap:8px;margin-bottom:10px}
+  .fill-btns button{flex:1;border:1px solid var(--line);background:#fff;border-radius:9px;padding:9px;font-size:12px;font-weight:700;color:var(--accent)}
+  .fill-btns button:active{background:#e8f0fe}
+  .unit-inputs{display:flex;flex-direction:column;gap:8px;margin-bottom:12px}
+  .unit-row{display:flex;gap:8px;width:100%}
+  .unit-row .u-name{flex:1 1 auto;min-width:0;border:1.5px solid var(--line);border-radius:9px;padding:10px;font-size:15px}
+  .unit-row .u-type{flex:0 0 96px;min-width:0;border:1.5px solid var(--line);border-radius:9px;padding:10px;font-size:15px}
+  /* タイプ名バッジ・オプションメモ */
+  .type-badge{display:inline-block;font-size:11px;font-weight:800;color:#7c2d12;background:#ffedd5;border:1px solid #fed7aa;border-radius:6px;padding:1px 6px;margin-left:6px;vertical-align:middle}
+  .type-badge.empty{color:#94a3b8;background:#f1f5f9;border-color:#e2e8f0;font-weight:700}
+  .opt-memo{width:100%;min-height:84px;border:1.5px solid var(--line);border-radius:10px;padding:11px;font-size:14px;font-family:inherit;line-height:1.55;resize:vertical;box-sizing:border-box;color:var(--ink)}
+  .sf-type,.sf-floor{background:#f1f4f7;border:none;border-radius:7px;padding:0 9px;height:32px;font-size:11px;font-weight:700;color:var(--ink-soft);flex:0 0 auto}
+  .chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}
+  .chip{border:1.5px solid var(--line);background:#fff;border-radius:999px;padding:8px 13px;font-size:13px;font-weight:600;color:var(--ink);cursor:pointer}
+  .chip.on{background:#f3eefe;border-color:var(--common);color:#5b21b6}
+  .free-add{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px}
+  .free-add input{flex:1}
+  .free-add button{flex:0 0 auto;border:none;background:var(--common);color:#fff;border-radius:10px;padding:0 16px;font-weight:700}
+  .pending-list{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:12px}
+  .pending-tag{background:#f3eefe;color:#5b21b6;border-radius:8px;padding:6px 10px;font-size:13px;font-weight:600;display:flex;align-items:center;gap:6px}
+  .pending-tag button{background:none;border:none;color:#7c3aed;font-size:14px;line-height:1}
+
+  .struct-floor{display:flex;align-items:center;gap:10px;padding:11px 12px;border:1px solid var(--line);border-radius:10px;margin-bottom:8px;background:#fff}
+  .struct-floor .sf-name{font-weight:700;font-size:15px}
+  .struct-floor .sf-count{font-size:12px;color:var(--ink-soft);margin-left:auto}
+  .struct-floor .sf-del{background:none;border:none;color:var(--danger);font-size:12px;font-weight:600;padding:6px}
+
+  /* 設定タブ：上段＝主タブ（塗り） */
+  .tabs{display:flex;gap:4px;margin:0 0 14px;background:#f1f3f4;padding:4px;border-radius:8px}
+  .tab-btn{flex:1;border:none;background:none;padding:11px;font-size:14px;font-weight:500;color:var(--ink-soft);border-radius:6px;cursor:pointer;transition:background .12s,color .12s,box-shadow .12s}
+  .tab-btn.active{background:var(--accent-soft);color:var(--accent);box-shadow:none}
+  .tab-panel{display:none}
+  .tab-panel.active{display:block}
+  /* 設定タブ：下段＝サブタブ（アウトラインのピル） */
+  .subtabs{display:flex;gap:8px;margin:0 0 16px;background:none;padding:0;border-radius:0}
+  .subtab-btn,.ptab-btn{flex:1;border:1.5px solid var(--line-strong);background:#fff;padding:9px;font-size:13px;font-weight:700;color:var(--ink-soft);border-radius:999px;cursor:pointer;transition:background .12s,color .12s,border-color .12s}
+  .subtab-btn.active,.ptab-btn.active{background:var(--accent-soft);color:var(--accent);border-color:#aecbfa}
+  .sub-panel{display:none}
+  .sub-panel.active{display:block}
+
+  /* 構成（展開＋部屋名編集） */
+  .struct-fg{border:1px solid var(--line);border-radius:11px;background:var(--panel);box-shadow:var(--shadow);margin-bottom:10px;overflow:hidden}
+  .struct-fg>summary{list-style:none;display:flex;align-items:center;gap:10px;padding:13px 14px;cursor:pointer}
+  .struct-fg>summary::-webkit-details-marker{display:none}
+  .struct-fg .sf-tw{color:#b4bfca;font-size:14px;transition:transform .15s;flex:0 0 auto}
+  .struct-fg[open]>summary .sf-tw{transform:rotate(90deg)}
+  .struct-fg .sf-name{font-size:15px;font-weight:700}
+  .struct-fg .sf-count{font-size:12px;color:var(--ink-soft);font-weight:600;margin-left:auto}
+  .struct-fg .sf-del{background:none;border:none;color:var(--danger);font-size:12px;font-weight:600;padding:6px 8px;flex:0 0 auto}
+  .struct-fg .sf-move{background:#eef1f4;border:none;border-radius:7px;width:30px;height:30px;font-size:12px;color:var(--ink-soft);flex:0 0 auto}
+  .struct-fg .sf-move:disabled{opacity:.35}
+  .sf-rooms{padding:0 10px 10px}
+  .sf-room{display:flex;align-items:center;gap:8px;border-top:1px solid var(--line);padding:3px 0}
+  .sf-rename{flex:1;min-width:0;text-align:left;background:none;border:none;font-size:15px;font-weight:600;color:var(--ink);padding:10px 6px;border-radius:7px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .sf-rename:active{background:#f1f4f7}
+  .sf-rdel{background:#f1f4f7;border:none;color:var(--danger);border-radius:7px;width:34px;height:34px;font-size:16px;flex:0 0 auto}
+
+  .modal{position:fixed;inset:0;z-index:50;background:rgba(15,23,32,.5);-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px);display:none;align-items:flex-end;justify-content:center}
+  .modal.active{display:flex}
+  .sheet{background:#fff;width:100%;max-width:680px;border-radius:22px 22px 0 0;max-height:92vh;overflow-y:auto;
+    padding:20px 16px calc(env(safe-area-inset-bottom) + 18px);box-shadow:0 -10px 40px rgba(15,23,32,.22);position:relative}
+  .sheet::before{content:"";position:absolute;top:9px;left:50%;transform:translateX(-50%);width:38px;height:4px;border-radius:999px;background:#dbe1e9}
+  .sheet h3{margin:6px 0 16px;font-size:17px;font-weight:800;letter-spacing:-.01em;text-align:center}
+  .sheet-actions{display:flex;gap:10px;margin-top:6px}
+  .sheet-actions .btn{flex:1}
+
+  /* 進捗選択メニュー（タップで直接選ぶ） */
+  .status-pick{display:flex;flex-direction:column;gap:9px;margin:2px 0 10px}
+  .status-pick-btn{display:flex;align-items:center;gap:11px;width:100%;border:2px solid var(--line);
+    background:#fff;border-radius:11px;padding:14px 14px;font-size:16px;font-weight:700;color:var(--ink-soft);cursor:pointer;text-align:left}
+  .status-pick-btn .sp-dot{width:15px;height:15px;border-radius:50%;background:var(--todo);flex:0 0 auto}
+  .status-pick-btn[data-v="doing"] .sp-dot{background:var(--doing)}
+  .status-pick-btn[data-v="done"] .sp-dot{background:var(--done)}
+  .status-pick-btn small{font-weight:600;color:var(--ink-soft);font-size:12px;margin-left:auto}
+  .status-pick-btn[data-v="todo"].cur{border-color:var(--todo);background:#f4f6f8;color:var(--ink)}
+  .status-pick-btn[data-v="doing"].cur{border-color:var(--doing);background:#fef6e7;color:#92500a}
+  .status-pick-btn[data-v="done"].cur{border-color:var(--done);background:#e9f7ee;color:#0f6b2e}
+  .status-pick-btn:active{background:#eef1f4}
+
+  .toast{position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom) + 90px);transform:translateX(-50%);
+    background:rgba(27,39,51,.92);color:#fff;padding:10px 18px;border-radius:999px;font-size:13px;font-weight:600;
+    z-index:60;opacity:0;transition:opacity .25s;pointer-events:none}
+  .toast.show{opacity:1}
+  .hint{font-size:12px;color:var(--ink-soft);margin:2px 0 0}
+  .setup-title{font-size:13px;font-weight:700;color:var(--ink-soft);margin:6px 4px 10px;letter-spacing:.03em}
+
+  /* 完了期限バー（詳細） */
+  .deadline-bar{display:flex;align-items:center;gap:8px;background:var(--panel);border:1px solid var(--line);
+    border-radius:10px;box-shadow:var(--shadow);padding:10px 12px;margin:0 0 14px;font-size:13px;font-weight:600}
+  .deadline-bar.over{border-color:#f3b4b4;background:#fdf2f2;color:#b42318}
+  .deadline-bar input[type=date]{flex:1;border:1px solid var(--line);border-radius:8px;padding:8px;font-size:15px;font-family:inherit;background:#fff;color:var(--ink)}
+  .deadline-bar .dl-clear{background:none;border:none;color:var(--ink-soft);font-size:12px;font-weight:600;padding:4px}
+
+  /* 工程アイテム（残工事つき） */
+  .proc-item{border:1.5px solid var(--line);border-radius:10px;margin-bottom:8px;overflow:hidden;background:#fff}
+  .proc-item:last-child{margin-bottom:0}
+  .proc-item.doing{border-color:#f6d488;background:#fffdf7}
+  .proc-item.done{border-color:#a7e0bb;background:#fbfefc}
+  .proc-line{display:flex;align-items:center;gap:11px;width:100%;text-align:left;background:none;border:none;padding:12px;cursor:pointer}
+  .proc-dot{width:14px;height:14px;border-radius:50%;background:var(--todo);flex:0 0 auto}
+  .proc-item.doing .proc-dot{background:var(--doing)}
+  .proc-item.done .proc-dot{background:var(--done)}
+  .proc-name{flex:1;font-size:15px;font-weight:600;word-break:break-word}
+  .proc-stat{font-size:12px;font-weight:700;color:var(--ink-soft);padding:3px 10px;border-radius:999px;background:#f1f4f7;flex:0 0 auto}
+  .proc-item.doing .proc-stat{color:#92500a;background:#fef0d6}
+  .proc-item.done .proc-stat{color:#0f6b2e;background:#dcf2e4}
+  .proc-extra{padding:0 12px 12px}
+  .proc-extra label{display:block;font-size:11px;font-weight:700;color:var(--ink-soft);margin:4px 0 5px}
+  .proc-extra textarea{width:100%;border:1.5px solid #e7d7ad;border-radius:9px;padding:10px;font-size:14px;font-family:inherit;min-height:60px;background:#fff}
+  .proc-dl-chip{font-size:11px;font-weight:700;color:var(--ink-soft);background:#eef1f4;border-radius:999px;padding:2px 8px;flex:0 0 auto}
+  .proc-dl-chip.over{color:#b42318;background:#fdeaea}
+  .proc-dl-row{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:600;color:var(--ink-soft);margin-bottom:2px}
+  .proc-dl-row input[type=date]{flex:1;border:1px solid var(--line);border-radius:8px;padding:8px;font-size:14px;font-family:inherit;background:#fff;color:var(--ink)}
+  .proc-dl-row.over{color:#b42318}
+  .proc-dl-row.over input[type=date]{border-color:#f3b4b4}
+  .pdl-clear{background:none;border:none;color:var(--ink-soft);font-size:12px;font-weight:600;padding:4px}
+
+  /* 残工事チェックリスト */
+  .rem-list{display:flex;flex-direction:column;gap:4px;margin-bottom:8px}
+  .rem-empty{font-size:12px;color:var(--ink-soft);padding:4px 2px}
+  .rem-item{display:flex;align-items:center;gap:9px;padding:8px 4px;border-bottom:1px solid #eef0f3}
+  .rem-item:last-child{border-bottom:none}
+  .rem-item input[type=checkbox]{width:20px;height:20px;flex:0 0 auto}
+  .rem-item span{flex:1;font-size:14px;word-break:break-word}
+  .rem-item.done span{text-decoration:line-through;color:var(--ink-soft);opacity:.5}
+  .rem-del{background:none;border:none;color:#b4bfca;font-size:18px;line-height:1;padding:2px 6px;flex:0 0 auto}
+  .rem-add{display:flex;gap:8px}
+  .rem-add .rem-new{flex:1;border:1.5px solid var(--line);border-radius:9px;padding:9px;font-size:15px;font-family:inherit}
+  .rem-add .rem-add-btn{flex:0 0 auto;border:none;background:var(--accent);color:#fff;border-radius:9px;padding:0 16px;font-weight:700}
+  .proc-quick{display:flex;gap:8px;margin-top:12px}
+  .btn-mini{flex:1;border:1px solid var(--line);background:#fff;border-radius:9px;padding:10px;font-size:12px;font-weight:700;color:var(--ink-soft)}
+  .btn-mini:active{background:#eef1f4}
+
+  /* 工程の編集（設定） */
+  .proc-edit{display:flex;align-items:center;gap:6px;padding:8px 0;border-bottom:1px solid var(--line)}
+  .proc-edit:last-child{border-bottom:none}
+  .pe-name{flex:1;text-align:left;background:none;border:none;font-size:15px;font-weight:600;color:var(--ink);padding:6px 2px}
+  .pe-up,.pe-down{background:#f1f4f7;border:none;border-radius:7px;width:34px;height:34px;font-size:12px;color:var(--ink-soft);flex:0 0 auto}
+  .pe-up:disabled,.pe-down:disabled{opacity:.3}
+  .pe-del{background:none;border:none;color:var(--danger);font-size:12px;font-weight:600;padding:6px;flex:0 0 auto}
+
+  /* ターゲット選択（部屋/フロア） */
+  .tgt-box{border:1px solid var(--line);border-radius:10px;max-height:42vh;overflow-y:auto;background:#fafbfc;padding:6px}
+  .tgt-floor{margin-bottom:4px}
+  .tgt-head{display:flex;align-items:center;gap:8px;padding:8px 8px;font-size:14px;background:#eef1f4;border-radius:8px;cursor:pointer}
+  .tgt-head b{flex:1}
+  .tgt-head span{font-size:11px;color:var(--ink-soft);font-weight:700}
+  .tgt-rooms{display:grid;grid-template-columns:repeat(2,1fr);gap:2px;padding:4px 2px 8px}
+  .tgt-room{display:flex;align-items:center;gap:7px;font-size:13px;padding:6px 8px}
+  .tgt-box input[type=checkbox]{width:18px;height:18px;flex:0 0 auto}
+
+  /* 注意点の工程タグ */
+  .note-tag{display:inline-block;font-size:11px;font-weight:700;color:#174ea6;background:#e8f0fe;border-radius:999px;padding:2px 9px;margin-bottom:6px}
+  .note-share{font-size:11px;color:var(--ink-soft);margin-left:6px}
+
+  /* 作業リスト（作業員側）の部屋ごと情報 */
+  .sh-info{border-radius:8px;padding:8px 10px;margin-bottom:8px;font-size:13px;line-height:1.5}
+  .sh-info-h{font-weight:700;margin-bottom:4px;font-size:12px}
+  .sh-info-row{margin-bottom:3px;word-break:break-word;white-space:pre-wrap}
+  .sh-info-row:last-child{margin-bottom:0}
+  .sh-note{background:#fff4f4;border:1px solid #f3c9c9;color:#8a2b2b}
+  .sh-opt{background:#e8f0fe;border:1px solid #d2e3fc;color:#174ea6}
+  .sh-photo{background:#f4f0ff;border:1px solid #d8cdf3;color:#5b3aa0;font-size:12px}
+
+  /* カードの期限表示 */
+  .loc-dl{font-weight:700}
+  .loc-dl.over{color:#b42318}
+
+  /* 期限の近い作業 */
+  .due-banner{display:block;width:100%;text-align:left;background:#e8f0fe;color:#1a73e8;border:1px solid #d2e3fc;
+    border-radius:13px;padding:14px 16px;font-size:14px;font-weight:700;margin-bottom:12px;box-shadow:var(--shadow-sm)}
+  .due-banner:active{background:#d2e3fc}
+  .due-banner.alert{background:#fdecec;color:#b42318;border-color:#f5bcbc}
+  .due-group-head{font-size:12px;font-weight:700;color:var(--ink-soft);margin:16px 4px 8px;letter-spacing:.03em}
+  .due-group-head.over{color:#b42318}
+  .due-item{display:flex;align-items:center;gap:10px;background:var(--panel);border:1px solid var(--line);
+    border-radius:11px;box-shadow:var(--shadow);padding:10px 12px;margin-bottom:8px}
+  .due-item.over{border-color:#f3b4b4}
+  .due-info{flex:1;min-width:0;text-align:left;background:none;border:none;padding:4px 0;cursor:pointer}
+  .due-where{display:block;font-size:15px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .due-proc{display:block;font-size:12px;color:var(--ink-soft);margin-top:2px}
+  .due-badge{display:inline-block;font-size:10px;font-weight:700;color:#fff;padding:1px 7px;border-radius:999px;margin-left:4px}
+  .due-date{flex:0 0 auto;text-align:center;font-size:13px;font-weight:700;color:var(--ink-soft);line-height:1.25}
+  .due-date small{display:block;font-size:10px;font-weight:600}
+  .due-date.over{color:#b42318}
+  .due-check{flex:0 0 auto;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:10px;font-weight:700;color:var(--ink-soft)}
+  .due-check input[type=checkbox]{width:26px;height:26px}
+  .due-item.picked{border-color:var(--accent);background:#e8f0fe;box-shadow:0 0 0 1.5px var(--accent) inset}
+  .due-wrap{margin-bottom:8px}
+  .due-wrap.has-rem .due-item{margin-bottom:0;border-bottom-left-radius:0;border-bottom-right-radius:0;border-bottom:none}
+  .due-rem{border:1px solid var(--line);border-bottom-left-radius:11px;border-bottom-right-radius:11px;background:#fbfcfd;box-shadow:var(--shadow);padding:2px 12px 6px}
+  .due-wrap.has-rem.over .due-rem{border-color:#f3b4b4}
+  .due-rem-head{font-size:11px;font-weight:700;color:var(--ink-soft);padding:8px 2px 4px}
+  .due-action-bar{position:fixed;left:0;right:0;bottom:0;z-index:35;display:none;pointer-events:none;
+    padding:10px 14px calc(env(safe-area-inset-bottom) + 10px);
+    background:linear-gradient(to top,rgba(238,241,244,.97) 72%,rgba(238,241,244,0))}
+  .due-action-bar.show{display:block}
+  .due-action-bar .btn{max-width:680px;margin:0 auto;pointer-events:auto;box-shadow:0 1px 3px rgba(60,64,67,.3),0 4px 8px 3px rgba(60,64,67,.15)}
+
+  /* フロア絞り込みチップ */
+  .floor-chips{display:flex;gap:7px;overflow-x:auto;-webkit-overflow-scrolling:touch;
+    padding:2px 2px 10px;margin:0 -2px 2px;scrollbar-width:none}
+  .floor-chips::-webkit-scrollbar{display:none}
+  .floor-chip{flex:0 0 auto;border:1.5px solid var(--line);background:#fff;border-radius:999px;
+    padding:8px 14px;font-size:13px;font-weight:700;color:var(--ink-soft);cursor:pointer;white-space:nowrap}
+  .floor-chip:active{background:#eef1f4}
+  .floor-chip.on{background:var(--accent);border-color:var(--accent);color:#fff}
+  .floor-chip.on:active{background:var(--accent-press)}
+
+  /* 工程別の進捗 */
+  .byproc-banner{display:block;width:100%;text-align:left;background:#eaf7ef;color:#0f6b2e;border:1px solid #c6e7d2;
+    border-radius:13px;padding:14px 16px;font-size:14px;font-weight:700;margin-bottom:12px;box-shadow:var(--shadow-sm)}
+  .byproc-banner:active{background:#daf0e3}
+  .bp-floor{margin-bottom:16px}
+  .bp-fhead{display:flex;align-items:center;gap:10px;font-size:13px;font-weight:700;color:var(--ink-soft);margin:0 2px 8px;cursor:pointer}
+  .bp-fhead .bp-fcount{margin-left:auto;font-weight:600}
+  .bp-fhead .bp-tw{color:#b4bfca;font-size:15px;transition:transform .15s;flex:0 0 auto}
+  .bp-fhead:not(.collapsed) .bp-tw{transform:rotate(90deg)}
+  .bp-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+  .bp-room{display:flex;align-items:stretch;border:1.5px solid var(--line);border-radius:10px;background:#fff;overflow:hidden}
+  .bp-main{flex:1;min-width:0;display:flex;align-items:center;gap:9px;background:none;border:none;
+    padding:11px 12px;font-size:14px;font-weight:600;color:var(--ink);text-align:left;cursor:pointer}
+  .bp-room .bp-dot{width:12px;height:12px;border-radius:50%;background:var(--todo);flex:0 0 auto}
+  .bp-room.doing{border-color:#f6d488;background:#fffdf7}
+  .bp-room.doing .bp-dot{background:var(--doing)}
+  .bp-room.done{border-color:#a7e0bb;background:#fbfefc}
+  .bp-room.done .bp-dot{background:var(--done)}
+  .bp-room .bp-nm{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .bp-detail-btn{flex:0 0 auto;background:none;border:none;border-left:1px solid var(--line);
+    color:var(--accent);font-size:11px;font-weight:700;padding:0 11px;cursor:pointer}
+  .bp-detail-btn.on{background:#e8f0fe}
+  .bp-panel{grid-column:1 / -1;background:#fff;border:1.5px solid var(--accent);border-radius:10px;padding:12px;margin-bottom:2px}
+  .bp-panel-head{font-size:13px;font-weight:800;color:var(--ink);margin-bottom:10px}
+  .bp-panel-label{display:block;font-size:11px;font-weight:700;color:var(--ink-soft);margin:10px 0 5px}
+  .bp-filter{display:flex;gap:8px;margin:0 0 14px}
+  .bp-filter label{flex:1;display:flex;align-items:center;justify-content:center;gap:6px;border:1.5px solid var(--line);
+    border-radius:10px;padding:9px 4px;font-size:13px;font-weight:700;color:var(--ink-soft);background:#fff;cursor:pointer}
+  .bp-filter label.on{border-color:var(--accent);background:#e8f0fe;color:var(--ink)}
+  .bp-filter label b{font-weight:800;color:var(--ink)}
+  .bp-filter input{width:18px;height:18px;flex:0 0 auto}
+  /* === ボトムナビ（Google Drive 風） === */
+  #dueBtn,#byprocBtn,#shareBtns{display:none !important}
+  .botnav{position:fixed;left:0;right:0;bottom:0;z-index:40;display:none;
+    background:var(--panel);border-top:1px solid var(--line);
+    padding:7px 4px calc(env(safe-area-inset-bottom) + 7px);
+    justify-content:space-around;align-items:flex-start}
+  .botnav.show{display:flex}
+  .botnav button{flex:1 1 0;min-width:0;border:none;background:none;cursor:pointer;
+    display:flex;flex-direction:column;align-items:center;gap:3px;padding:0;color:var(--ink-soft);transition:color .12s}
+  .botnav .ic{position:relative;display:flex;align-items:center;justify-content:center;
+    width:62px;height:32px;border-radius:16px;transition:background .15s}
+  .botnav .ic svg{width:24px;height:24px;display:block}
+  .botnav .lb{font-size:12px;font-weight:500;letter-spacing:0;white-space:nowrap}
+  .botnav button.active{color:var(--accent)}
+  .botnav button.active .ic{background:var(--accent-soft)}
+  .botnav button.active .lb{color:var(--ink)}
+  .botnav button:active .ic{background:#f1f3f4}
+  .botnav button.active:active .ic{background:var(--accent-soft)}
+  .nav-badge{position:absolute;top:-3px;right:5px;min-width:16px;height:16px;padding:0 4px;
+    border-radius:8px;background:var(--danger);color:#fff;font-size:10px;font-weight:700;
+    line-height:16px;text-align:center;display:none;box-sizing:border-box}
+  /* === 左ドロワー（メニュー） === */
+  .drawer-scrim{position:fixed;inset:0;z-index:55;background:rgba(15,23,32,.45);
+    opacity:0;visibility:hidden;transition:opacity .2s,visibility .2s}
+  .drawer-scrim.show{opacity:1;visibility:visible}
+  .app-drawer{position:fixed;top:0;left:0;bottom:0;z-index:56;width:84%;max-width:300px;
+    background:var(--panel);box-shadow:var(--shadow-lg);
+    transform:translateX(-100%);transition:transform .22s cubic-bezier(.2,0,0,1);
+    display:flex;flex-direction:column;overflow-y:auto;
+    padding:calc(env(safe-area-inset-top) + 4px) 0 calc(env(safe-area-inset-bottom) + 12px)}
+  .app-drawer.open{transform:translateX(0)}
+  .drawer-head{padding:18px 20px 16px;border-bottom:1px solid var(--line);margin-bottom:6px}
+  .drawer-head .dh-app{font-size:12px;color:var(--ink-soft);font-weight:500}
+  .drawer-head .dh-site{font-size:20px;font-weight:500;color:var(--ink);margin-top:3px;word-break:break-word}
+  .drawer-sec{font-size:11px;font-weight:700;color:var(--ink-soft);letter-spacing:.04em;padding:14px 20px 4px}
+  .drawer-item{display:flex;align-items:center;gap:16px;width:calc(100% - 12px);border:none;background:none;
+    text-align:left;cursor:pointer;padding:13px 20px;font-size:15px;font-weight:500;color:var(--ink);
+    border-radius:0 999px 999px 0;transition:background .12s}
+  .drawer-item:active{background:#f1f3f4}
+  .drawer-item .di-ic{width:24px;height:24px;flex:0 0 auto;color:var(--ink-soft);display:flex;align-items:center;justify-content:center}
+  .drawer-item .di-ic svg{width:24px;height:24px;display:block}
+  .drawer-item .di-tx{min-width:0}
+  .drawer-item .di-sub{display:block;font-size:12px;font-weight:400;color:var(--ink-soft);margin-top:2px}
+</style>
+</head>
+<body>
+
+
+<header>
+  <button class="menu" id="menuBtn" aria-label="メニュー">☰</button>
+  <button class="back" id="backBtn" aria-label="戻る">‹</button>
+  <div class="htxt">
+    <div class="htitle">マンション工事 施工・工程管理</div>
+    <div class="hsite" id="siteName">現場名</div>
+  </div>
+  <button class="gear" id="gearBtn">⚙ 設定</button>
+</header>
+
+<main>
+  <!-- 一覧 -->
+  <section class="view active" id="viewList">
+    <button class="due-banner" id="dueBtn" style="display:none"></button>
+    <button class="byproc-banner" id="byprocBtn" style="display:none">📋 工程別に進捗を見る ›</button>
+    <div id="shareBtns" style="display:flex;gap:8px;margin-bottom:12px">
+      <button class="btn btn-soft" id="shareMakeBtn" style="flex:1;padding:11px;font-size:13px">📤 作業リストを作る</button>
+      <button class="btn btn-soft" id="shareImportBtn" style="flex:1;padding:11px;font-size:13px">📥 作業リストを取り込む</button>
+    </div>
+    <div class="floor-chips" id="floorChips" style="display:none"></div>
+    <div id="listBody"></div>
+    <div id="listEmpty" class="empty" style="margin-top:40px">
+      まだ部屋が登録されていません。<br><br>
+      <button class="btn btn-primary" id="emptyCta" style="max-width:260px;margin:0 auto">現場設定で部屋を登録する</button>
+    </div>
+  </section>
+
+  <!-- 詳細 -->
+  <section class="view" id="viewDetail"></section>
+
+  <!-- 現場設定 -->
+  <section class="view" id="viewSetup"></section>
+
+  <!-- 期限の近い作業 -->
+  <section class="view" id="viewDue"></section>
+
+  <!-- 工程別の進捗 -->
+  <section class="view" id="viewByproc"></section>
+
+  <!-- 共有（試作） -->
+  <section class="view" id="viewShare"></section>
+
+  <!-- 完了報告の反映（試作） -->
+  <section class="view" id="viewDoneReview"></section>
+</main>
+
+<!-- 左ドロワー（メニュー） -->
+<div class="drawer-scrim" id="drawerScrim"></div>
+<nav class="app-drawer" id="appDrawer" aria-label="メニュー">
+  <div class="drawer-head">
+    <div class="dh-app">マンション工事 施工・工程管理</div>
+    <div class="dh-site" id="drawerSite">現場名</div>
+  </div>
+  <div class="drawer-sec">作業リスト</div>
+  <button type="button" class="drawer-item" id="drawerShareMake">
+    <span class="di-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"><path d="M12 15V4"/><path d="m8 8 4-4 4 4"/><path d="M5 14v5a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-5"/></svg></span>
+    <span class="di-tx">作業リストを作る<span class="di-sub">作業員に渡すコードを発行</span></span>
+  </button>
+  <button type="button" class="drawer-item" id="drawerShareImport">
+    <span class="di-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"><path d="M12 4v11"/><path d="m8 11 4 4 4-4"/><path d="M5 14v5a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-5"/></svg></span>
+    <span class="di-tx">作業リストを取り込む<span class="di-sub">受け取ったコードを貼り付け</span></span>
+  </button>
+  <div class="drawer-sec">設定</div>
+  <button type="button" class="drawer-item" id="drawerProc">
+    <span class="di-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"><path d="M9 6h11"/><path d="M9 12h11"/><path d="M9 18h11"/><path d="m4 6 1 1 2-2"/><path d="m4 12 1 1 2-2"/><path d="m4 18 1 1 2-2"/></svg></span>
+    <span class="di-tx">工程の設定<span class="di-sub">住戸・共用部の工程と期限</span></span>
+  </button>
+  <button type="button" class="drawer-item" id="drawerReg">
+    <span class="di-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"><path d="M3 21h18"/><path d="M5 21V5a1 1 0 0 1 1-1h8a1 1 0 0 1 1 1v16"/><path d="M19 21V10a1 1 0 0 0-1-1h-4"/><path d="M9 8h2M9 12h2M9 16h2"/></svg></span>
+    <span class="di-tx">住戸・共用部の登録<span class="di-sub">現場名・部屋・共用部の登録</span></span>
+  </button>
+  <button type="button" class="drawer-item" id="drawerBackup">
+    <span class="di-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"><path d="M12 4v10"/><path d="m8 10 4 4 4-4"/><path d="M5 16v3a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-3"/></svg></span>
+    <span class="di-tx">バックアップ・復元<span class="di-sub">データをファイルに保存／読み込み</span></span>
+  </button>
+  <div class="drawer-sec">この端末</div>
+  <button type="button" class="drawer-item" id="drawerWorker">
+    <span class="di-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg></span>
+    <span class="di-tx">作業員モードにする<span class="di-sub">取り込み・完了返却だけの画面に</span></span>
+  </button>
+</nav>
+
+<!-- ボトムナビ -->
+<nav class="botnav" id="botNav">
+  <button type="button" id="navList">
+    <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"><path d="M12 3 2 8l10 5 10-5-10-5Z"/><path d="m2 13 10 5 10-5"/></svg></span>
+    <span class="lb">フロア別</span>
+  </button>
+  <button type="button" id="navByproc">
+    <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"><path d="M9 6h11"/><path d="M9 12h11"/><path d="M9 18h11"/><path d="m4 6 1 1 2-2"/><path d="m4 12 1 1 2-2"/><path d="m4 18 1 1 2-2"/></svg></span>
+    <span class="lb">工程別</span>
+  </button>
+  <button type="button" id="navDue">
+    <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7.5V12l3 2"/></svg><span class="nav-badge" id="navDueBadge"></span></span>
+    <span class="lb">期限間近</span>
+  </button>
+</nav>
+
+<!-- 注意点モーダル -->
+<div class="modal" id="noteModal">
+  <div class="sheet">
+    <h3>注意点を追加</h3>
+    <div class="field">
+      <label>関連する工程（任意）</label>
+      <select id="inNoteProc"></select>
+    </div>
+    <div class="field">
+      <label>内容</label>
+      <textarea id="inNote" placeholder="例）梁貫通あり。スリーブ位置を図面で要確認。"></textarea>
+    </div>
+    <div class="field">
+      <label>写真（任意・複数可）</label>
+      <div class="photo-grid" id="notePhotoGrid"></div>
+      <p class="hint">追加時に自動で圧縮して保存します</p>
+    </div>
+    <div class="field">
+      <label>登録する部屋（共通の注意点は複数選択）</label>
+      <button type="button" class="btn-mini" id="noteSameType" style="width:auto;padding:8px 12px;margin-bottom:8px;display:none"></button>
+      <div class="tgt-box" id="noteTargets"></div>
+      <p class="hint" id="noteTgtHint" style="display:none"></p>
+    </div>
+    <div class="sheet-actions">
+      <button class="btn btn-soft" id="noteCancel">キャンセル</button>
+      <button class="btn btn-primary" id="noteSave">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- 完了期限まとめ登録モーダル -->
+<div class="modal" id="dlModal">
+  <div class="sheet">
+    <h3>完了期限をまとめて登録</h3>
+    <div class="field">
+      <label>対象の工程</label>
+      <select id="dlProc"></select>
+    </div>
+    <div class="field">
+      <label>完了期限</label>
+      <input id="dlDate" type="date">
+    </div>
+    <div class="field">
+      <label>対象の部屋（フロアの「全室」で一括選択）</label>
+      <div class="tgt-box" id="dlTargets"></div>
+    </div>
+    <div class="sheet-actions">
+      <button class="btn btn-soft" id="dlCancel">キャンセル</button>
+      <button class="btn btn-primary" id="dlSave">この期限を登録</button>
+    </div>
+  </div>
+</div>
+
+<!-- 作業リストを作るモーダル（試作） -->
+<div class="modal" id="shareMakeModal">
+  <div class="sheet">
+    <h3>作業リストを作る</h3>
+    <div class="field">
+      <label>工程で絞り込み</label>
+      <select id="shareProc"></select>
+    </div>
+    <div class="field">
+      <label>部屋で絞り込み（フロアの「全室」で一括。未選択なら全部屋）</label>
+      <div class="tgt-box" id="shareTargets"></div>
+    </div>
+    <button class="btn btn-soft" id="shareFilterBtn" style="margin-bottom:14px">この条件で未完了を出す</button>
+    <div id="shareCandWrap" style="display:none">
+      <div class="preview" id="shareCandInfo"></div>
+      <div style="display:flex;gap:8px;margin-bottom:10px">
+        <button class="btn-mini" id="shareSelAll" style="flex:1">全選択</button>
+        <button class="btn-mini" id="shareSelNone" style="flex:1">全解除</button>
+      </div>
+      <div id="shareCandList" style="margin-bottom:14px"></div>
+      <div class="field">
+        <label>選んだ作業のコード（コピー／共有で送る）</label>
+        <textarea id="shareCode" readonly="" style="min-height:96px;font-family:monospace;font-size:12px;word-break:break-all"></textarea>
+      </div>
+      <div class="sheet-actions">
+        <button class="btn btn-soft" id="shareCopyBtn">コピー</button>
+        <button class="btn btn-primary" id="shareShareBtn">共有</button>
+      </div>
+    </div>
+    <button class="btn btn-soft" id="shareMakeClose" style="margin-top:10px">閉じる</button>
+  </div>
+</div>
+
+<!-- 作業リストを取り込むモーダル（試作） -->
+<div class="modal" id="shareImportModal">
+  <div class="sheet">
+    <h3>作業リストを取り込む</h3>
+    <div class="field">
+      <label>受け取ったコードを貼り付け</label>
+      <textarea id="shareImportText" placeholder="ここにコードを貼り付け" style="min-height:120px;font-family:monospace;font-size:12px;word-break:break-all"></textarea>
+    </div>
+    <div class="sheet-actions">
+      <button class="btn btn-soft" id="shareImportCancel">キャンセル</button>
+      <button class="btn btn-primary" id="shareImportDo">取り込む</button>
+    </div>
+  </div>
+</div>
+
+<!-- 完了を職長に返すモーダル（試作・作業員側） -->
+<div class="modal" id="shareDoneModal">
+  <div class="sheet">
+    <h3>完了を職長に返す</h3>
+    <div class="preview" id="shareDoneInfo"></div>
+    <div class="field">
+      <label>この完了コードを職長に送ります（コピー／共有）</label>
+      <textarea id="shareDoneCode" readonly="" style="min-height:120px;font-family:monospace;font-size:12px;word-break:break-all"></textarea>
+    </div>
+    <div class="sheet-actions">
+      <button class="btn btn-soft" id="shareDoneCopy">コピー</button>
+      <button class="btn btn-primary" id="shareDoneShare">共有</button>
+    </div>
+    <button class="btn btn-soft" id="shareDoneClose" style="margin-top:10px">閉じる</button>
+  </div>
+</div>
+
+<div class="due-action-bar" id="dueActionBar">
+  <button class="btn btn-primary" id="dueDoneBtn"></button>
+</div>
+<div class="toast" id="toast"></div>
+<input type="file" id="filePicker" accept="image/*" style="display:none">
+<input type="file" id="restorePicker" accept=".json,application/json" style="display:none">
+
+<script>
+"use strict";
+/* =========================================================
+   データ層（Firebase移行しやすい flat 構造）
+   locations: {id, floor, name, kind:"unit"|"common", status, photos[], updatedAt}
+   ========================================================= */
+const STORE_KEY = "genba_mansion_v1";
+/* 共有（試作）用：本体データとは別の保存場所。本体の進捗には影響しない */
+const SHARE_KEY = "genba_share_test_v1";
+const SHARE_TAG = "GENBA1";
+/* 端末の役割（職長／作業員）。本体データには触れない別キー */
+const ROLE_KEY = "genba_role_v1";
+const DEFAULT_CATEGORIES = [{id:"kutai",name:"躯体工事"},{id:"naiso",name:"内装工事"}];
+const DEFAULT_PROCESSES = [
+  {name:"壁BOX建込",cat:"kutai"},
+  {name:"スラブ墨出し",cat:"kutai"},
+  {name:"梁スリーブ",cat:"kutai"},
+  {name:"スラブ配管",cat:"kutai"},
+  {name:"弱電配線",cat:"naiso"},
+  {name:"強電配線",cat:"naiso"},
+  {name:"ユニットケーブル",cat:"naiso"},
+  {name:"ウレタン面配線",cat:"naiso"},
+  {name:"間仕切墨出し",cat:"naiso"},
+  {name:"間仕切配線",cat:"naiso"},
+  {name:"ボード開口",cat:"naiso"},
+  {name:"配線器具取付",cat:"naiso"},
+  {name:"分電盤取付",cat:"naiso"},
+  {name:"試験・検査（絶縁・導通）",cat:"naiso"},
+];
+// 初期値に揃える際、旧名→新名へ読み替えて進捗を引き継ぐためのマップ
+const PROC_RENAMES = { "配線器具器具取付":"配線器具取付" };
+let db = { site:{name:"新しい現場"}, locations:[], notes:[], processes:[], categories:[], commonProcesses:[], commonCategories:[], ui:{collapsed:[]} };
+
+function load(){
+  try{ const raw=localStorage.getItem(STORE_KEY); if(raw) db=JSON.parse(raw); }catch(e){}
+  if(!db.site) db.site={name:"新しい現場"};
+  if(!Array.isArray(db.locations)) db.locations=[];
+  if(!Array.isArray(db.notes)) db.notes=[];
+  if(!Array.isArray(db.categories)||db.categories.length===0)
+    db.categories=DEFAULT_CATEGORIES.map(c=>({id:c.id,name:c.name}));
+  if(!Array.isArray(db.processes)||db.processes.length===0)
+    db.processes=DEFAULT_PROCESSES.map(p=>({id:uid(),name:p.name,catId:p.cat}));
+  // 既存の工程に分類が無ければ、いったん先頭の分類（躯体工事）に入れる
+  const firstCatId=db.categories[0].id;
+  db.processes.forEach(p=>{ if(!p.catId || !db.categories.some(c=>c.id===p.catId)) p.catId=firstCatId; });
+  // 共用部用の工程・分類（住戸とは別管理）。工程は空から、分類は既定を用意
+  if(!Array.isArray(db.commonCategories)||db.commonCategories.length===0)
+    db.commonCategories=DEFAULT_CATEGORIES.map(c=>({id:c.id,name:c.name}));
+  if(!Array.isArray(db.commonProcesses)) db.commonProcesses=[];
+  const firstCommonCatId=db.commonCategories[0].id;
+  db.commonProcesses.forEach(p=>{ if(!p.catId || !db.commonCategories.some(c=>c.id===p.catId)) p.catId=firstCommonCatId; });
+  if(!db.ui) db.ui={collapsed:[]};
+  if(!Array.isArray(db.ui.collapsed)) db.ui.collapsed=[];
+  // 注意点を locationIds（複数部屋共有）に正規化
+  db.notes.forEach(n=>{
+    if(!Array.isArray(n.locationIds)) n.locationIds = n.locationId ? [n.locationId] : [];
+    if(!("processId" in n)) n.processId=null;
+  });
+  // 部屋にタイプ名とオプション変更メモの欄を用意（既存データの移行）
+  db.locations.forEach(l=>{
+    if(typeof l.type!=="string") l.type="";
+    if(typeof l.optionMemo!=="string") l.optionMemo="";
+    // 共用部にもフロアを持たせる。旧データの floor="共用部" は「階未設定」(空) に読み替え
+    if(l.kind==="common"){
+      if(typeof l.floor!=="string" || l.floor==="共用部") l.floor="";
+    }
+  });
+}
+function save(){
+  try{ localStorage.setItem(STORE_KEY,JSON.stringify(db)); return true; }
+  catch(e){ toast("保存できませんでした。写真が多すぎる可能性があります"); return false; }
+}
+function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,7); }
+const el=(id)=>document.getElementById(id);
+function escapeHtml(s){return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
+function floorNum(name){ const m=String(name).match(/-?\d+/); return m?parseInt(m[0],10):null; }
+
+/* 画面状態 */
+let currentLocId=null, notePhotosBuffer=[], pickerTarget=null;
+let listFloor="__all__"; // 一覧のフロア絞り込み（"__all__"=全て / "__common__"=共用部 / フロア名）
+let detailCat=null;
+let commonPending=[];
+let structOpen=new Set(); // 「登録済みの構成」で開いているグループを記憶（再描画で畳まれないように）
+
+/* =========================================================
+   一覧
+   ========================================================= */
+function grouped(){
+  const groups={}, order=[]; const commons=[];
+  db.locations.forEach(loc=>{
+    if(loc.kind==="common"){ commons.push(loc); return; }
+    const f=loc.floor||"（階未設定）";
+    if(!groups[f]){ groups[f]=[]; order.push(f); }
+    groups[f].push(loc);
+  });
+  const fo=(db.ui&&Array.isArray(db.ui.floorOrder))?db.ui.floorOrder:[];
+  order.sort((a,b)=>{
+    const ia=fo.indexOf(a), ib=fo.indexOf(b);
+    if(ia!==-1&&ib!==-1) return ia-ib;   // 手動並び順を最優先
+    if(ia!==-1) return -1;
+    if(ib!==-1) return 1;
+    const na=floorNum(a), nb=floorNum(b); // 未指定は番号昇順
+    if(na===null&&nb===null) return 0;
+    if(na===null) return 1; if(nb===null) return -1;
+    return na-nb;
+  });
+  return {order,groups,commons};
+}
+
+function statusInfo(s){
+  if(s==="done") return {label:"完了",cls:"b-done",color:"var(--done)"};
+  if(s==="doing") return {label:"施工中",cls:"b-doing",color:"var(--doing)"};
+  return {label:"未着手",cls:"b-todo",color:"var(--todo)"};
+}
+
+/* 工程ベースの集計 */
+function procList(){ return db.processes||[]; }              // 住戸用
+function catList(){ return db.categories||[]; }              // 住戸用
+function commonProcList(){ return db.commonProcesses||[]; }  // 共用部用
+function commonCatList(){ return db.commonCategories||[]; }  // 共用部用
+/* 部屋の種別に応じた工程・分類 */
+function procListFor(loc){ return (loc&&loc.kind==="common") ? commonProcList() : procList(); }
+function catListFor(loc){ return (loc&&loc.kind==="common") ? commonCatList() : catList(); }
+function procsByCat(catId){ return procList().filter(p=>p.catId===catId); }
+function procsByCatIn(list,catId){ return list.filter(p=>p.catId===catId); }
+/* 住戸用・共用部用のどちらからでも工程を探す（注意点タグ用） */
+function findProcAny(pid){ return procList().find(p=>p.id===pid) || commonProcList().find(p=>p.id===pid) || null; }
+function getProg(loc,pid){
+  const v=loc.progress&&loc.progress[pid];
+  const norm=(rem)=>{
+    if(Array.isArray(rem)) return rem.map(it=> typeof it==="string" ? {text:it,done:false} : {text:it.text||"",done:!!it.done});
+    if(typeof rem==="string" && rem.trim()) return [{text:rem.trim(),done:false}];
+    return [];
+  };
+  if(!v) return {status:"todo",remaining:[],deadline:""};
+  if(typeof v==="string") return {status:v,remaining:[],deadline:""};
+  return {status:v.status||"todo",remaining:norm(v.remaining),deadline:v.deadline||""};
+}
+function setProg(loc,pid,patch){
+  loc.progress=loc.progress||{};
+  loc.progress[pid]=Object.assign({},getProg(loc,pid),patch);
+}
+function locDoneCount(loc){
+  const ps=procListFor(loc); let done=0;
+  ps.forEach(p=>{ if(getProg(loc,p.id).status==="done") done++; });
+  return {done,total:ps.length};
+}
+function locStatus(loc){
+  const ps=procListFor(loc);
+  if(ps.length===0) return loc.status||"todo";
+  let anyNonTodo=false, allDone=true;
+  ps.forEach(p=>{ const s=getProg(loc,p.id).status; if(s!=="todo") anyNonTodo=true; if(s!=="done") allDone=false; });
+  if(allDone) return "done";
+  if(anyNonTodo) return "doing";
+  return "todo";
+}
+
+/* 日付 */
+function todayStr(){ const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; }
+function fmtMD(s){ if(!s) return ""; const p=s.split("-"); return p.length===3 ? `${parseInt(p[1],10)}/${parseInt(p[2],10)}` : s; }
+/* 部屋の中で「未完了かつ期限あり」の工程から、最も近い期限と超過有無 */
+function locDeadlineInfo(loc){
+  const ps=procListFor(loc); let min=null, over=false;
+  ps.forEach(p=>{ const pr=getProg(loc,p.id);
+    if(pr.deadline && pr.status!=="done"){
+      if(!min||pr.deadline<min) min=pr.deadline;
+      if(pr.deadline<todayStr()) over=true;
+    }
+  });
+  return {date:min, over};
+}
+
+/* 注意点（複数部屋共有） */
+function notesFor(loc){ return db.notes.filter(n=>(n.locationIds||[]).includes(loc.id)); }
+
+function locCard(loc){
+  const noteCount=notesFor(loc).length;
+  const photoCount=(loc.photos||[]).length;
+  const s=statusInfo(locStatus(loc));
+  const dc=locDoneCount(loc);
+  const progTxt = dc.total>0 ? `<span>工程 ${dc.done}/${dc.total}</span>` : "";
+  let dlTxt="";
+  const di=locDeadlineInfo(loc);
+  if(di.date){
+    dlTxt=`<span class="loc-dl ${di.over?"over":""}">〆${fmtMD(di.date)}${di.over?" 超過":""}</span>`;
+  }
+  const card=document.createElement("div");
+  card.className="card";
+  card.innerHTML=`
+    <button class="loc" data-id="${loc.id}">
+      <span class="loc-bar" style="background:${s.color}"></span>
+      <span class="loc-body">
+        <span class="loc-name">${escapeHtml(loc.name)}${loc.type?`<span class="type-badge">${escapeHtml(loc.type)}</span>`:""}</span>
+        <span class="loc-meta">
+          <span class="badge ${s.cls}">${s.label}</span>
+          ${dlTxt}${progTxt}<span>📷 ${photoCount}</span><span>⚠️ ${noteCount}</span>
+        </span>
+      </span>
+      <span class="loc-chev">›</span>
+    </button>`;
+  card.querySelector(".loc").addEventListener("click",()=>openDetail(loc.id));
+  return card;
+}
+
+function floorGroup(label,locs,isCommon,forceOpen){
+  const det=document.createElement("details");
+  det.className="floor-group"+(isCommon?" common":"");
+  det.open = forceOpen ? true : !(db.ui.collapsed||[]).includes(label);
+  const doneRooms=locs.filter(l=>locStatus(l)==="done").length;
+  const unit=isCommon?"件":"戸";
+  det.innerHTML=`
+    <summary class="floor-summary">
+      <span class="fs-name">${escapeHtml(label)}</span>
+      <span class="fs-stat">${locs.length}${unit}・完了${doneRooms}</span>
+      <span class="fs-tw">›</span>
+    </summary>
+    <div class="floor-rooms"></div>`;
+  const box=det.querySelector(".floor-rooms");
+  locs.forEach(l=>box.appendChild(locCard(l)));
+  det.addEventListener("toggle",()=>{
+    const set=new Set(db.ui.collapsed||[]);
+    if(det.open) set.delete(label); else set.add(label);
+    db.ui.collapsed=[...set]; save();
+  });
+  return det;
+}
+
+/* 共用部をフロアごとにまとめる（空フロアは「階未設定」） */
+function commonFloorGroups(commons){
+  const groups={}, order=[];
+  commons.forEach(loc=>{
+    const f=loc.floor||"";
+    if(!groups[f]){ groups[f]=[]; order.push(f); }
+    groups[f].push(loc);
+  });
+  const co=(db.ui&&Array.isArray(db.ui.commonFloorOrder))?db.ui.commonFloorOrder:[];
+  order.sort((a,b)=>{
+    const ia=co.indexOf(a), ib=co.indexOf(b);
+    if(ia!==-1&&ib!==-1) return ia-ib;   // 手動並び順を最優先
+    if(ia!==-1) return -1;
+    if(ib!==-1) return 1;
+    const na=floorNum(a), nb=floorNum(b); // 未指定は番号昇順、番号なしは後ろ
+    if(na===null&&nb===null) return 0;
+    if(na===null) return 1; if(nb===null) return -1;
+    return na-nb;
+  });
+  return {order,groups};
+}
+
+/* 一覧の「共用部」グループ（中をフロアで小分け） */
+function commonGroup(commons,forceOpen){
+  const det=document.createElement("details");
+  det.className="floor-group common";
+  det.open = forceOpen ? true : !(db.ui.collapsed||[]).includes("共用部");
+  const doneRooms=commons.filter(l=>locStatus(l)==="done").length;
+  det.innerHTML=`
+    <summary class="floor-summary">
+      <span class="fs-name">共用部</span>
+      <span class="fs-stat">${commons.length}件・完了${doneRooms}</span>
+      <span class="fs-tw">›</span>
+    </summary>
+    <div class="floor-rooms"></div>`;
+  const box=det.querySelector(".floor-rooms");
+  const {order,groups}=commonFloorGroups(commons);
+  const nest=order.length>1; // フロアが2種類以上のときだけ入れ子（フロア開閉）にする
+  order.forEach(f=>{
+    if(nest){
+      const label=f||"階未設定";
+      const key="共用部/"+label;
+      const sub=document.createElement("details");
+      sub.className="floor-group common common-nested";
+      sub.open=!(db.ui.collapsed||[]).includes(key);
+      const doneN=groups[f].filter(l=>locStatus(l)==="done").length;
+      sub.innerHTML=`
+        <summary class="floor-summary">
+          <span class="fs-name">${escapeHtml(label)}</span>
+          <span class="fs-stat">${groups[f].length}件・完了${doneN}</span>
+          <span class="fs-tw">›</span>
+        </summary>
+        <div class="floor-rooms"></div>`;
+      const sbox=sub.querySelector(".floor-rooms");
+      groups[f].forEach(l=>sbox.appendChild(locCard(l)));
+      sub.addEventListener("toggle",()=>{
+        const set=new Set(db.ui.collapsed||[]);
+        if(sub.open) set.delete(key); else set.add(key);
+        db.ui.collapsed=[...set]; save();
+      });
+      box.appendChild(sub);
+    }else{
+      groups[f].forEach(l=>box.appendChild(locCard(l)));
+    }
+  });
+  det.addEventListener("toggle",()=>{
+    const set=new Set(db.ui.collapsed||[]);
+    if(det.open) set.delete("共用部"); else set.add("共用部");
+    db.ui.collapsed=[...set]; save();
+  });
+  return det;
+}
+
+function renderList(){
+  el("siteName").textContent=db.site.name||"現場名";
+  const body=el("listBody"), empty=el("listEmpty"), chipBox=el("floorChips");
+  body.innerHTML="";
+  renderDueBanner();
+  el("byprocBtn").style.display = db.locations.length ? "block" : "none";
+  if(db.locations.length===0){
+    empty.style.display="block";
+    if(chipBox) chipBox.style.display="none";
+    return;
+  }
+  empty.style.display="none";
+  const {order,groups,commons}=grouped();
+  const hasCommon=commons.length>0;
+  // 選択中フロアが削除等で消えていたら「全て」に戻す
+  if(listFloor!=="__all__"){
+    if(listFloor==="__common__"){ if(!hasCommon) listFloor="__all__"; }
+    else if(!order.includes(listFloor)) listFloor="__all__";
+  }
+  renderFloorChips(order,hasCommon);
+  if(listFloor==="__all__"){
+    order.forEach(floor=>body.appendChild(floorGroup(floor,groups[floor],false)));
+    if(hasCommon) body.appendChild(commonGroup(commons));
+  }else if(listFloor==="__common__"){
+    body.appendChild(commonGroup(commons,true));   // 絞り込み時は展開
+  }else{
+    body.appendChild(floorGroup(listFloor,groups[listFloor],false,true)); // 絞り込み時は展開
+  }
+}
+
+/* 一覧上部のフロア絞り込みチップ */
+function renderFloorChips(order,hasCommon){
+  const box=el("floorChips");
+  if(!box) return;
+  box.style.display="";
+  const chips=[{key:"__all__",label:"全て"}];
+  order.forEach(f=>chips.push({key:f,label:f}));
+  if(hasCommon) chips.push({key:"__common__",label:"共用部"});
+  box.innerHTML=chips.map(c=>
+    `<button type="button" class="floor-chip${c.key===listFloor?" on":""}" data-k="${escapeHtml(c.key)}">${escapeHtml(c.label)}</button>`
+  ).join("");
+  box.querySelectorAll(".floor-chip").forEach(b=>b.addEventListener("click",()=>{
+    listFloor=b.dataset.k; renderList(); window.scrollTo(0,0);
+  }));
+}
+
+/* =========================================================
+   期限の近い作業
+   ========================================================= */
+function daysFromToday(dateStr){
+  const a=dateStr.split("-").map(Number);
+  const t=new Date(); t.setHours(0,0,0,0);
+  const target=new Date(a[0],a[1]-1,a[2]);
+  return Math.round((target-t)/86400000);
+}
+function dueLabel(d){
+  if(d<0) return `${-d}日超過`;
+  if(d===0) return "今日まで";
+  if(d===1) return "明日まで";
+  return `あと${d}日`;
+}
+function collectDue(){
+  const arr=[];
+  db.locations.forEach(loc=>{
+    procListFor(loc).forEach(p=>{
+      const pr=getProg(loc,p.id);
+      if(pr.deadline && pr.status!=="done"){
+        arr.push({loc,p,deadline:pr.deadline,status:pr.status,d:daysFromToday(pr.deadline)});
+      }
+    });
+  });
+  arr.sort((a,b)=> a.deadline<b.deadline?-1 : a.deadline>b.deadline?1 : 0);
+  return arr;
+}
+function renderDueBanner(){
+  const btn=el("dueBtn");
+  const badge=el("navDueBadge");
+  const setBadge=(over,soon)=>{ if(!badge) return;
+    if(over>0){ badge.textContent=over>99?"99+":over; badge.style.background="var(--danger)"; badge.style.display="block"; }
+    else if(soon>0){ badge.textContent=soon>99?"99+":soon; badge.style.background="var(--accent)"; badge.style.display="block"; }
+    else { badge.style.display="none"; } };
+  if(db.locations.length===0){ btn.style.display="none"; setBadge(0,0); return; }
+  const due=collectDue();
+  const over=due.filter(x=>x.d<0).length;
+  const soon=due.filter(x=>x.d>=0&&x.d<=7).length;
+  btn.style.display="block";
+  btn.classList.toggle("alert",over>0);
+  if(over>0) btn.innerHTML=`⏰ 期限超過 ${over}件・間近 ${soon}件 ›`;
+  else if(soon>0) btn.innerHTML=`⏰ 期限間近 ${soon}件 ›`;
+  else btn.innerHTML=`⏰ 期限の近い作業 ›`;
+  setBadge(over,soon);
+}
+function renderDue(){
+  const due=collectDue();
+  const v=el("viewDue");
+  let html=`<div class="detail-title-row"><div class="detail-title">期限の近い作業</div></div>
+    <div class="detail-sub">未完了で完了期限のある作業を、近い順に表示。チェックで完了にできます。</div>`;
+  if(due.length===0){
+    html+=`<div class="empty" style="margin-top:30px">完了期限が設定された未完了の作業はありません。<br>現場設定の「完了期限をまとめて登録」から設定できます。</div>`;
+    v.innerHTML=html; return;
+  }
+  const groups=[
+    {key:"over",title:"期限超過",items:due.filter(x=>x.d<0)},
+    {key:"soon",title:"今日・まもなく（7日以内）",items:due.filter(x=>x.d>=0&&x.d<=7)},
+    {key:"later",title:"それ以降",items:due.filter(x=>x.d>7)}
+  ];
+  groups.forEach(g=>{
+    if(g.items.length===0) return;
+    html+=`<div class="due-group-head ${g.key}">${g.title}（${g.items.length}）</div>`;
+    g.items.forEach((x,i)=>{
+      const over=x.d<0;
+      const stInfo=statusInfo(x.status);
+      const rem=getProg(x.loc,x.p.id).remaining||[];
+      const hasRem=rem.length>0;
+      html+=`<div class="due-wrap${hasRem?" has-rem":""}${over?" over":""}">
+        <div class="due-item ${over?"over":""}">
+        <button class="due-info" data-loc="${x.loc.id}">
+          <span class="due-where">${escapeHtml(x.loc.kind==="common"?"共用部":x.loc.floor)}　${escapeHtml(x.loc.name)}</span>
+          <span class="due-proc">${escapeHtml(x.p.name)} <span class="due-badge ${stInfo.cls}">${stInfo.label}</span></span>
+        </button>
+        <span class="due-date ${over?"over":""}">〆${fmtMD(x.deadline)}<small>${dueLabel(x.d)}</small></span>
+        <label class="due-check"><input type="checkbox" class="due-cb" data-loc="${x.loc.id}" data-proc="${x.p.id}"><span>完了</span></label>
+        </div>`;
+      if(hasRem){
+        html+=`<div class="due-rem"><div class="due-rem-head">残工事</div><div class="rem-list">`+
+          rem.map((it,ix)=>`<label class="rem-item ${it.done?"done":""}"><input type="checkbox" class="due-rem-cb" data-loc="${x.loc.id}" data-proc="${x.p.id}" data-ix="${ix}" ${it.done?"checked":""}><span>${escapeHtml(it.text)}</span></label>`).join("")+
+          `</div></div>`;
+      }
+      html+=`</div>`;
+    });
+  });
+  v.innerHTML=html;
+  v.querySelectorAll(".due-info").forEach(b=>b.addEventListener("click",()=>openDetail(b.dataset.loc)));
+  v.querySelectorAll(".due-cb").forEach(cb=>cb.addEventListener("change",()=>{
+    cb.closest(".due-item").classList.toggle("picked", cb.checked);
+    updateDueBar();
+  }));
+  v.querySelectorAll(".due-rem-cb").forEach(cb=>cb.addEventListener("change",()=>{
+    const loc=db.locations.find(l=>l.id===cb.dataset.loc);
+    if(!loc) return;
+    const items=(getProg(loc,cb.dataset.proc).remaining||[]).slice();
+    const ix=parseInt(cb.dataset.ix,10);
+    if(items[ix]){ items[ix].done=cb.checked; setProg(loc,cb.dataset.proc,{remaining:items}); loc.updatedAt=Date.now(); save(); }
+    cb.closest(".rem-item").classList.toggle("done", cb.checked);
+  }));
+  updateDueBar();
+}
+function updateDueBar(){
+  const bar=el("dueActionBar"), btn=el("dueDoneBtn");
+  const n=document.querySelectorAll("#viewDue .due-cb:checked").length;
+  if(n>0){ btn.textContent=`✓ 選択した ${n}件 を完了にする`; bar.classList.add("show"); el("botNav").classList.remove("show"); }
+  else{ bar.classList.remove("show"); el("botNav").classList.add("show"); }
+}
+function goDue(){ renderDue(); showView("due"); }
+
+/* =========================================================
+   工程別の進捗
+   ========================================================= */
+let byprocKind="unit", byprocPid=null, byprocFloor="__all__";
+let byprocFilter={todo:true,doing:true,done:true};
+let byprocOpen=new Set();
+let byprocCollapsed=new Set();
+function goByproc(){ renderByproc(); showView("byproc"); }
+function renderByproc(){
+  const v=el("viewByproc");
+  const kind=byprocKind;
+  const procs = kind==="common" ? commonProcList() : procList();
+  if(!byprocPid || !procs.some(p=>p.id===byprocPid)) byprocPid = procs[0] ? procs[0].id : null;
+  const wireKind=()=>{
+    v.querySelectorAll(".tab-btn[data-bk]").forEach(b=>b.addEventListener("click",()=>{
+      byprocKind=b.dataset.bk; byprocPid=null; byprocFloor="__all__"; renderByproc();
+    }));
+  };
+  let html=`<div class="detail-title-row"><div class="detail-title">工程別の進捗</div></div>
+    <div class="detail-sub">工程を選ぶと、その工程の全部屋の状況が見られます。部屋をタップして 未着手／施工中／完了 を選べます。</div>
+    <div class="tabs">
+      <button type="button" class="tab-btn ${kind==="unit"?"active":""}" data-bk="unit">住戸</button>
+      <button type="button" class="tab-btn ${kind==="common"?"active":""}" data-bk="common">共用部</button>
+    </div>`;
+  if(procs.length===0){
+    html+=`<div class="empty" style="margin-top:24px">${kind==="common"?"共用部":"住戸"}の工程がまだありません。設定の「工程」で追加してください。</div>`;
+    v.innerHTML=html; wireKind(); return;
+  }
+  const rooms = db.locations.filter(l=> kind==="common" ? l.kind==="common" : l.kind!=="common");
+  // このタブの全フロア構成（チップ用・集計用）
+  let order,groups,labelOf;
+  if(kind==="common"){
+    const cg=commonFloorGroups(rooms);
+    order=cg.order; groups=cg.groups; labelOf=(fl)=>fl||"階未設定";
+  }else{
+    const g=grouped(); order=g.order; groups=g.groups; labelOf=(fl)=>fl;
+  }
+  // フロアが1つ以下なら絞り込みは無効（全て扱い）。選択中フロアが消えていたら全てに戻す
+  if(order.length<=1) byprocFloor="__all__";
+  if(byprocFloor!=="__all__" && !order.includes(byprocFloor)) byprocFloor="__all__";
+  // 集計対象（フロア絞り込みを反映）
+  const countRooms = byprocFloor==="__all__" ? rooms : (groups[byprocFloor]||[]);
+  let cTodo=0,cDoing=0,cDone=0;
+  countRooms.forEach(l=>{ const s=getProg(l,byprocPid).status; if(s==="done")cDone++; else if(s==="doing")cDoing++; else cTodo++; });
+  html+=`<div class="field"><label>工程</label><select id="byprocSel">${procs.map(p=>`<option value="${p.id}" ${p.id===byprocPid?"selected":""}>${escapeHtml(p.name)}</option>`).join("")}</select></div>`;
+  // フロア絞り込みチップ（フロアが2つ以上のときだけ表示）
+  if(order.length>1){
+    const chipDefs=[{k:"__all__",label:"全て"}].concat(order.map(fl=>({k:fl,label:labelOf(fl)})));
+    html+=`<div class="floor-chips" id="byprocFloorChips">`+chipDefs.map(c=>`<button type="button" class="floor-chip${c.k===byprocFloor?" on":""}" data-k="${escapeHtml(c.k)}">${escapeHtml(c.label)}</button>`).join("")+`</div>`;
+  }
+  html+=`<div class="preview">この工程：完了 ${cDone} / 全 ${countRooms.length}（施工中 ${cDoing}）</div>`;
+  const f=byprocFilter;
+  html+=`<div class="bp-filter">
+    <label class="${f.todo?"on":""}"><input type="checkbox" class="bpf" value="todo" ${f.todo?"checked":""}>未着手 <b>${cTodo}</b></label>
+    <label class="${f.doing?"on":""}"><input type="checkbox" class="bpf" value="doing" ${f.doing?"checked":""}>施工中 <b>${cDoing}</b></label>
+    <label class="${f.done?"on":""}"><input type="checkbox" class="bpf" value="done" ${f.done?"checked":""}>完了 <b>${cDone}</b></label>
+  </div>`;
+  html+=`<div id="byprocBody"></div>`;
+  v.innerHTML=html;
+  wireKind();
+  const sel=el("byprocSel");
+  if(sel) sel.addEventListener("change",()=>{ byprocPid=sel.value; renderByproc(); });
+  const bpChips=el("byprocFloorChips");
+  if(bpChips) bpChips.querySelectorAll(".floor-chip").forEach(b=>b.addEventListener("click",()=>{ byprocFloor=b.dataset.k; renderByproc(); window.scrollTo(0,0); }));
+  v.querySelectorAll(".bpf").forEach(cb=>cb.addEventListener("change",()=>{ byprocFilter[cb.value]=cb.checked; renderByproc(); }));
+  const active=["todo","doing","done"].filter(s=>byprocFilter[s]);
+  const body=el("byprocBody");
+  if(rooms.length===0){ body.innerHTML=`<div class="empty" style="margin-top:10px">${kind==="common"?"共用部":"住戸"}が登録されていません。</div>`; return; }
+  if(active.length===0){ body.innerHTML=`<div class="empty" style="margin-top:10px">表示する状況にチェックを入れてください。</div>`; return; }
+  body.innerHTML="";
+  const visOrder = byprocFloor==="__all__" ? order : order.filter(fl=>fl===byprocFloor);
+  visOrder.forEach(f=>{
+    const locs=groups[f]||[];
+    if(locs.length===0) return;
+    const visLocs=locs.filter(l=>active.includes(getProg(l,byprocPid).status));
+    if(visLocs.length===0) return;
+    const dn=locs.filter(l=>getProg(l,byprocPid).status==="done").length;
+    const wrap=document.createElement("div"); wrap.className="bp-floor";
+    const collapsed = byprocFloor!=="__all__" ? false : byprocCollapsed.has(kind+":"+f);
+    const head=document.createElement("div"); head.className="bp-fhead"+(collapsed?" collapsed":"");
+    head.innerHTML=`<span class="bp-tw">›</span><span class="bp-fname">${escapeHtml(labelOf(f))}</span><span class="bp-fcount">完了 ${dn}/${locs.length}</span><button type="button" class="btn-mini bp-allbtn" style="flex:0 0 auto;width:auto;padding:6px 10px">全室完了</button>`;
+    head.addEventListener("click",()=>{ const k=kind+":"+f; if(byprocCollapsed.has(k)) byprocCollapsed.delete(k); else byprocCollapsed.add(k); renderByproc(); });
+    head.querySelector(".bp-allbtn").addEventListener("click",(e)=>{
+      e.stopPropagation();
+      locs.forEach(l=>{ setProg(l,byprocPid,{status:"done"}); l.updatedAt=Date.now(); });
+      save(); renderByproc();
+    });
+    wrap.appendChild(head);
+    if(!collapsed){
+    const grid=document.createElement("div"); grid.className="bp-grid";
+    const buildPanel=(l)=>{
+      const pr=getProg(l,byprocPid), st=pr.status;
+      const over = pr.deadline && pr.deadline<todayStr() && st!=="done";
+      const panel=document.createElement("div"); panel.className="bp-panel";
+      let ph=`<div class="bp-panel-head">${escapeHtml(l.name)} の詳細</div>`;
+      ph+=`<div class="proc-dl-row ${over?"over":""}"><span>完了期限</span><input type="date" class="pdl" value="${pr.deadline||""}">${pr.deadline?`<button class="pdl-clear">クリア</button>`:""}</div>`;
+      if(st==="doing"){
+        const items=pr.remaining||[];
+        const listHtml = items.length
+          ? items.map((it,ix)=>`<label class="rem-item ${it.done?"done":""}"><input type="checkbox" class="rem-cb" data-ix="${ix}" ${it.done?"checked":""}><span>${escapeHtml(it.text)}</span><button class="rem-del" data-ix="${ix}" aria-label="削除">×</button></label>`).join("")
+          : `<div class="rem-empty">残工事を下に追加できます</div>`;
+        ph+=`<label class="bp-panel-label">残工事チェックリスト</label>
+          <div class="rem-list">${listHtml}</div>
+          <div class="rem-add"><input type="text" class="rem-new" placeholder="例）天井内の通線"><button type="button" class="rem-add-btn">追加</button></div>`;
+      }
+      panel.innerHTML=ph;
+      const pdl=panel.querySelector(".pdl");
+      if(pdl) pdl.addEventListener("change",()=>{ setProg(l,byprocPid,{deadline:pdl.value||""}); l.updatedAt=Date.now(); save(); renderByproc(); });
+      const pdlc=panel.querySelector(".pdl-clear");
+      if(pdlc) pdlc.addEventListener("click",()=>{ setProg(l,byprocPid,{deadline:""}); save(); renderByproc(); });
+      if(st==="doing"){
+        const items=(pr.remaining||[]).slice();
+        panel.querySelectorAll(".rem-cb").forEach(cb=>cb.addEventListener("change",()=>{
+          const ix=parseInt(cb.dataset.ix,10); items[ix].done=cb.checked;
+          setProg(l,byprocPid,{remaining:items}); save(); renderByproc();
+        }));
+        panel.querySelectorAll(".rem-del").forEach(bt=>bt.addEventListener("click",e=>{
+          e.preventDefault();
+          const ix=parseInt(bt.dataset.ix,10); items.splice(ix,1);
+          setProg(l,byprocPid,{remaining:items}); save(); renderByproc();
+        }));
+        const remNew=panel.querySelector(".rem-new"), remAdd=panel.querySelector(".rem-add-btn");
+        const addRem=()=>{ const val=remNew.value.trim(); if(!val) return; items.push({text:val,done:false}); setProg(l,byprocPid,{remaining:items}); save(); renderByproc(); };
+        if(remAdd) remAdd.addEventListener("click",addRem);
+      }
+      return panel;
+    };
+    visLocs.forEach(l=>{
+      const st=getProg(l,byprocPid).status;
+      const room=document.createElement("div"); room.className="bp-room "+st;
+      const badge=(kind!=="common"&&l.type)?`<span class="type-badge">${escapeHtml(l.type)}</span>`:"";
+      const detailBtn = st!=="done" ? `<button type="button" class="bp-detail-btn ${byprocOpen.has(l.id)?"on":""}">詳細</button>` : "";
+      room.innerHTML=`<button type="button" class="bp-main"><span class="bp-dot"></span><span class="bp-nm">${escapeHtml(l.name)}${badge}</span></button>${detailBtn}`;
+      room.querySelector(".bp-main").addEventListener("click",()=>{
+        const cur=getProg(l,byprocPid).status;
+        pickStatus(cur, l.name+" の進捗").then(v=>{
+          if(v && v!==cur){ setProg(l,byprocPid,{status:v}); l.updatedAt=Date.now(); save(); renderByproc(); }
+        });
+      });
+      const dBtn=room.querySelector(".bp-detail-btn");
+      if(dBtn) dBtn.addEventListener("click",()=>{
+        if(byprocOpen.has(l.id)) byprocOpen.delete(l.id); else byprocOpen.add(l.id);
+        renderByproc();
+      });
+      grid.appendChild(room);
+      if(st!=="done" && byprocOpen.has(l.id)) grid.appendChild(buildPanel(l));
+    });
+    wrap.appendChild(grid);
+    }
+    body.appendChild(wrap);
+  });
+}
+
+/* =========================================================
+   詳細
+   ========================================================= */
+function openDetail(id){ currentLocId=id; renderDetail(); showView("detail"); }
+
+function renderDetail(){
+  const loc=db.locations.find(l=>l.id===currentLocId);
+  if(!loc){ showView("list"); return; }
+  const notes=notesFor(loc);
+  const photos=loc.photos||[];
+  const sub=loc.kind==="common"?("共用部"+(loc.floor?" ・ "+loc.floor:"")):(loc.floor||"階未設定");
+  const isUnit=loc.kind!=="common";
+  const typeBadge=isUnit?`<span class="type-badge ${loc.type?"":"empty"}" id="typeBadge">${loc.type?escapeHtml(loc.type):"＋タイプ"}</span>`:"";
+  el("viewDetail").innerHTML=`
+    <div class="detail-title-row">
+      <div class="detail-title">${escapeHtml(loc.name)}${typeBadge}</div>
+      <button class="detail-rename" id="renameBtn">${isUnit?"番号変更":"名称変更"}</button>
+    </div>
+    <div class="detail-sub">${escapeHtml(sub)}</div>
+    <div class="section">
+      <h2>進捗状況（タップして 未着手／施工中／完了 を選ぶ）</h2>
+      <div class="cat-tabs" id="catTabs"></div>
+      <div id="procList"></div>
+      <div class="proc-quick">
+        <button class="btn-mini" id="allDone">全部 完了</button>
+        <button class="btn-mini" id="allReset">全部 未着手</button>
+      </div>
+    </div>
+    <div class="section">
+      <h2>写真（${photos.length}枚）</h2>
+      <div class="photo-grid" id="locPhotoGrid"></div>
+    </div>
+    ${isUnit?`<div class="section">
+      <h2>オプション変更</h2>
+      <textarea class="opt-memo" id="optMemo" placeholder="例）LD コンセント2口増設 / 洋室1 → 引戸に変更 / 食洗機追加"></textarea>
+    </div>`:""}
+    <div class="section">
+      <h2>施工の注意点（${notes.length}件）</h2>
+      <div id="noteList"></div>
+      <button class="btn btn-ghost" id="addNoteBtn" style="margin-top:12px">＋ 注意点を追加</button>
+    </div>
+    <button class="btn-danger-text" id="delLocBtn">この部屋を削除</button>`;
+
+  // 工程ごとの進捗（タップで 未→施工中→完了。各工程に完了期限、施工中は残工事）
+  const allPs=procListFor(loc);
+  const cats=catListFor(loc);
+  // 表示中の分類タブの有効性チェック
+  if(!detailCat || !cats.some(c=>c.id===detailCat)){
+    const firstWith=cats.find(c=>procsByCatIn(allPs,c.id).length>0);
+    detailCat=(firstWith||cats[0]||{}).id||null;
+  }
+  // 分類タブを描画
+  const catTabs=el("catTabs");
+  if(catTabs){
+    if(allPs.length===0||cats.length===0){ catTabs.style.display="none"; catTabs.innerHTML=""; }
+    else{
+      catTabs.style.display=""; catTabs.innerHTML="";
+      cats.forEach(c=>{
+        const list=procsByCatIn(allPs,c.id);
+        let dn=0; list.forEach(p=>{ if(getProg(loc,p.id).status==="done") dn++; });
+        const b=document.createElement("button");
+        b.className="cat-tab"+(c.id===detailCat?" active":"");
+        b.innerHTML=`${escapeHtml(c.name)}<span class="ct-count">${dn}/${list.length}</span>`;
+        b.addEventListener("click",()=>{ detailCat=c.id; renderDetail(); });
+        catTabs.appendChild(b);
+      });
+    }
+  }
+  const ps = detailCat ? procsByCatIn(allPs,detailCat) : allPs;
+  const pl=el("procList");
+  if(allPs.length===0){
+    pl.innerHTML=`<div class="empty">工程が未設定です。現場設定の「工程」で追加してください</div>`;
+  }else if(ps.length===0){
+    pl.innerHTML=`<div class="empty">この分類の工程はありません。設定の「工程」で追加・移動できます</div>`;
+  }else{
+    pl.innerHTML="";
+    ps.forEach(p=>{
+      const pr=getProg(loc,p.id), st=pr.status, info=statusInfo(st);
+      const over = pr.deadline && pr.deadline<todayStr() && st!=="done";
+      const item=document.createElement("div"); item.className="proc-item "+st;
+      const dlChip = (pr.deadline && st!=="done") ? `<span class="proc-dl-chip ${over?"over":""}">〆${fmtMD(pr.deadline)}</span>` : "";
+      let html=`<button class="proc-line"><span class="proc-dot"></span><span class="proc-name">${escapeHtml(p.name)}</span>${dlChip}<span class="proc-stat">${info.label}</span></button>`;
+      if(st!=="done"){
+        html+=`<div class="proc-extra">
+          <div class="proc-dl-row ${over?"over":""}"><span>完了期限</span><input type="date" class="pdl" value="${pr.deadline||""}">${pr.deadline?`<button class="pdl-clear">クリア</button>`:""}</div>`;
+        if(st==="doing"){
+          const items=pr.remaining||[];
+          const listHtml = items.length
+            ? items.map((it,ix)=>`<label class="rem-item ${it.done?"done":""}"><input type="checkbox" class="rem-cb" data-ix="${ix}" ${it.done?"checked":""}><span>${escapeHtml(it.text)}</span><button class="rem-del" data-ix="${ix}" aria-label="削除">×</button></label>`).join("")
+            : `<div class="rem-empty">残工事を下に追加できます</div>`;
+          html+=`<label>残工事チェックリスト</label>
+            <div class="rem-list">${listHtml}</div>
+            <div class="rem-add"><input type="text" class="rem-new" placeholder="例）天井内の通線"><button type="button" class="rem-add-btn">追加</button></div>`;
+        }
+        html+=`</div>`;
+        item.innerHTML=html;
+        item.querySelector(".proc-line").addEventListener("click",()=>{
+          pickStatus(st, p.name).then(v=>{
+            if(v && v!==st){ setProg(loc,p.id,{status:v}); loc.updatedAt=Date.now(); save(); renderDetail(); }
+          });
+        });
+        const pdl=item.querySelector(".pdl");
+        if(pdl) pdl.addEventListener("change",()=>{ setProg(loc,p.id,{deadline:pdl.value||""}); loc.updatedAt=Date.now(); save(); renderDetail(); });
+        const pdlc=item.querySelector(".pdl-clear");
+        if(pdlc) pdlc.addEventListener("click",()=>{ setProg(loc,p.id,{deadline:""}); save(); renderDetail(); });
+        // 残工事チェックリスト
+        const items=(pr.remaining||[]).slice();
+        item.querySelectorAll(".rem-cb").forEach(cb=>cb.addEventListener("change",()=>{
+          const ix=parseInt(cb.dataset.ix,10); items[ix].done=cb.checked;
+          setProg(loc,p.id,{remaining:items}); save(); renderDetail();
+        }));
+        item.querySelectorAll(".rem-del").forEach(b=>b.addEventListener("click",e=>{
+          e.preventDefault();
+          const ix=parseInt(b.dataset.ix,10); items.splice(ix,1);
+          setProg(loc,p.id,{remaining:items}); save(); renderDetail();
+        }));
+        const remNew=item.querySelector(".rem-new"), remAdd=item.querySelector(".rem-add-btn");
+        const addRem=()=>{ const v=remNew.value.trim(); if(!v) return; items.push({text:v,done:false}); setProg(loc,p.id,{remaining:items}); save(); renderDetail(); };
+        if(remAdd) remAdd.addEventListener("click",addRem);
+        pl.appendChild(item);
+        return;
+      }
+      item.innerHTML=html;
+      item.querySelector(".proc-line").addEventListener("click",()=>{
+        pickStatus(st, p.name).then(v=>{
+          if(v && v!==st){ setProg(loc,p.id,{status:v}); loc.updatedAt=Date.now(); save(); renderDetail(); }
+        });
+      });
+      const pdl=item.querySelector(".pdl");
+      if(pdl) pdl.addEventListener("change",()=>{ setProg(loc,p.id,{deadline:pdl.value||""}); loc.updatedAt=Date.now(); save(); renderDetail(); });
+      const pdlc=item.querySelector(".pdl-clear");
+      if(pdlc) pdlc.addEventListener("click",()=>{ setProg(loc,p.id,{deadline:""}); save(); renderDetail(); });
+      pl.appendChild(item);
+    });
+  }
+  const setAll=(v)=>{ ps.forEach(p=>setProg(loc,p.id,{status:v})); loc.updatedAt=Date.now(); save(); renderDetail(); };
+  el("allDone").addEventListener("click",()=>setAll("done"));
+  el("allReset").addEventListener("click",()=>setAll("todo"));
+  el("renameBtn").addEventListener("click",()=>{
+    uiPrompt(isUnit?"部屋番号を入力してください":"名称を入力してください",loc.name).then(nn=>{
+      if(nn!==null&&nn.trim()){ loc.name=nn.trim(); loc.updatedAt=Date.now(); save(); renderDetail(); }
+    });
+  });
+  const tb=el("typeBadge");
+  if(tb) tb.addEventListener("click",()=>{
+    uiPrompt("タイプ名を入力（例：A）。空欄で消去できます",loc.type||"").then(t=>{
+      if(t!==null){ loc.type=t.trim(); loc.updatedAt=Date.now(); save(); renderDetail(); }
+    });
+  });
+  const om=el("optMemo");
+  if(om){ om.value=loc.optionMemo||""; om.addEventListener("change",()=>{ loc.optionMemo=om.value; loc.updatedAt=Date.now(); save(); }); }
+  renderPhotoGrid(el("locPhotoGrid"),photos,{
+    onAdd:()=>{ pickerTarget="locationPhoto"; el("filePicker").click(); },
+    onDelete:(i)=>{ uiConfirm("この写真を削除しますか？").then(ok=>{ if(ok){ photos.splice(i,1); save(); renderDetail(); } }); }
+  });
+  const nl=el("noteList");
+  if(notes.length===0){ nl.innerHTML=`<div class="empty">注意点はまだありません</div>`; }
+  else{
+    nl.innerHTML="";
+    notes.forEach(n=>{
+      const w=document.createElement("div"); w.className="note";
+      const proc = n.processId ? findProcAny(n.processId) : null;
+      const tag = proc ? `<span class="note-tag">${escapeHtml(proc.name)}</span>` : "";
+      const cnt=(n.locationIds||[]).length;
+      const share = cnt>1 ? `<span class="note-share">他${cnt-1}部屋と共通</span>` : "";
+      const ph=(n.photos&&n.photos.length)?`<div class="note-photos">${n.photos.map(p=>`<img src="${p}">`).join("")}</div>`:"";
+      w.innerHTML=`${tag}${share}<div class="note-top"><div class="note-text">${escapeHtml(n.text)}</div><button class="note-del">削除</button></div>${ph}`;
+      w.querySelector(".note-del").addEventListener("click",()=>{
+        const msg = cnt>1 ? "この部屋からこの注意点を外しますか？（他の部屋には残ります）" : "この注意点を削除しますか？";
+        uiConfirm(msg).then(ok=>{ if(!ok) return;
+          n.locationIds=(n.locationIds||[]).filter(id=>id!==loc.id);
+          if(n.locationIds.length===0) db.notes=db.notes.filter(x=>x.id!==n.id);
+          save(); renderDetail();
+        });
+      });
+      nl.appendChild(w);
+    });
+  }
+  el("addNoteBtn").addEventListener("click",openNoteModal);
+  el("delLocBtn").addEventListener("click",()=>{
+    uiConfirm("この部屋を削除します。よろしいですか？").then(ok=>{
+      if(!ok) return;
+      db.locations=db.locations.filter(l=>l.id!==loc.id);
+      db.notes.forEach(n=>{ n.locationIds=(n.locationIds||[]).filter(id=>id!==loc.id); });
+      db.notes=db.notes.filter(n=>(n.locationIds||[]).length>0);
+      save(); showView("list"); renderList(); toast("削除しました");
+    });
+  });
+}
+
+function renderPhotoGrid(container,photos,{onAdd,onDelete}){
+  container.innerHTML="";
+  photos.forEach((p,i)=>{
+    const c=document.createElement("div"); c.className="ph";
+    c.innerHTML=`<img src="${p}"><button class="del" aria-label="削除">×</button>`;
+    c.querySelector(".del").addEventListener("click",()=>onDelete(i));
+    container.appendChild(c);
+  });
+  const a=document.createElement("div"); a.className="add-photo";
+  a.innerHTML=`<span class="ic">＋</span><span>写真</span>`;
+  a.addEventListener("click",onAdd); container.appendChild(a);
+}
+
+/* =========================================================
+   現場設定
+   ========================================================= */
+const COMMON_PRESETS=["EPS","PS","MB","TPS","機械室","ポンプ室","受水槽室","電気室","発電機室","屋上","塔屋","駐車場","駐輪場","エントランス","管理人室","ゴミ置場","集会室"];
+
+function renderSetup(){
+  commonPending=[];
+  let optsFloor="",optsUnit="";
+  for(let i=1;i<=60;i++) optsFloor+=`<option value="${i}">${i}F</option>`;
+  for(let i=1;i<=20;i++) optsUnit+=`<option value="${i}">${i}戸</option>`;
+  const chips=COMMON_PRESETS.map(c=>`<button type="button" class="chip" data-c="${c}">${c}</button>`).join("");
+
+  el("viewSetup").innerHTML=`
+    <div class="setup-title" id="setupPageTitle" style="font-size:18px;margin:2px 0 16px">設定</div>
+    <div id="secSite">
+    <div class="setup-title">現場名</div>
+    <div class="field" style="margin-bottom:16px">
+      <input id="setSiteName" type="text" value="${escapeHtml(db.site.name||"")}" placeholder="例）〇〇マンション新築工事">
+    </div>
+    </div>
+
+    <div class="tabs" id="setupTabs">
+      <button type="button" class="tab-btn active" data-tab="proc">工程</button>
+      <button type="button" class="tab-btn" data-tab="reg">登録</button>
+    </div>
+
+    <div class="tab-panel active" id="tabProc">
+    <div class="subtabs">
+      <button type="button" class="ptab-btn active" data-psub="unit">住戸</button>
+      <button type="button" class="ptab-btn" data-psub="common">共用部</button>
+    </div>
+
+    <div class="sub-panel active" id="psubUnit">
+    <div class="setup-title">住戸の工程</div>
+    <div class="card" style="padding:14px;margin-bottom:18px">
+      <div id="procEditList"></div>
+      <div class="free-add" style="margin-top:10px">
+        <select id="procNewCat" class="proc-new-cat"></select>
+        <input id="procNew" type="text" placeholder="例）弱電配線、盤結線">
+        <button type="button" id="procAdd" style="background:var(--accent)">追加</button>
+      </div>
+      <p class="hint">分類を選んで追加。名前をタップで変更、▲▼で分類内の並べ替え、「移動」で分類を変更できます。</p>
+    </div>
+
+      <div class="card" style="padding:14px;margin-bottom:18px">
+        <button class="btn btn-ghost" id="procResetBtn">工程を初期値（おすすめ）に揃える</button>
+        <p class="hint">並び・分類を初期値にリセットします。同名の工程の進捗（チェック・期限）は残ります。初期値にない工程は削除され、その工程のチェック・期限は消えます。共用部の工程には影響しません。</p>
+      </div>
+    </div>
+
+    <div class="sub-panel" id="psubCommon">
+    <div class="setup-title">共用部の工程</div>
+    <div class="card" style="padding:14px;margin-bottom:18px">
+      <div id="cprocEditList"></div>
+      <div class="free-add" style="margin-top:10px">
+        <select id="cprocNewCat" class="proc-new-cat"></select>
+        <input id="cprocNew" type="text" placeholder="例）盤結線、接地、照明器具取付">
+        <button type="button" id="cprocAdd" style="background:var(--common)">追加</button>
+      </div>
+      <p class="hint">共用部だけで使う工程です（住戸とは別管理）。名前をタップで変更、▲▼で並べ替え、「移動」で分類を変更できます。</p>
+    </div>
+
+      <div class="card" style="padding:14px;margin-bottom:18px">
+        <button class="btn btn-ghost" id="cprocCopyBtn">住戸の工程をコピー</button>
+        <p class="hint">今の住戸の工程・分類を共用部にコピーします（共用部の今の工程は置き換わります）。</p>
+      </div>
+    </div>
+
+      <div class="setup-title" style="margin-top:22px">完了期限</div>
+      <div class="card" style="padding:14px;margin-bottom:18px">
+        <button class="btn btn-ghost" id="openDlBtn">完了期限をまとめて登録</button>
+        <p class="hint">フロアの「全室」や部屋を選んで、まとめて完了期限を設定できます。</p>
+      </div>
+    </div>
+
+    <div class="tab-panel" id="tabReg">
+    <div class="subtabs">
+      <button type="button" class="subtab-btn active" data-sub="unit">住戸</button>
+      <button type="button" class="subtab-btn" data-sub="common">共用部</button>
+    </div>
+
+    <div class="sub-panel active" id="subUnit">
+    <div class="setup-title">住戸を登録する</div>
+
+    <details class="setup-card" open>
+      <summary><span class="ico" style="background:var(--accent)">▤</span>住戸をまとめて登録<span class="tw">›</span></summary>
+      <div class="setup-body">
+        <div class="row2">
+          <div class="field"><label>開始階</label><select id="bStart">${optsFloor}</select></div>
+          <div class="field"><label>終了階</label><select id="bEnd">${optsFloor}</select></div>
+          <div class="field"><label>各階の戸数</label><select id="bUnits">${optsUnit}</select></div>
+        </div>
+        <div class="field"><label>部屋名の付け方</label>
+          <select id="bMode">
+            <option value="num">番号（301, 302…）</option>
+            <option value="type">A・B・C（A, B, C…）</option>
+          </select>
+        </div>
+        <div class="field"><label>各戸のタイプ（任意・カンマ区切り）</label>
+          <input id="bTypes" type="text" placeholder="例）A,B,A（各階に同じ並びで付与）"></div>
+        <div class="preview" id="bPreview"></div>
+        <button class="btn btn-primary" id="bCreate">この内容でまとめて作成</button>
+      </div>
+    </details>
+
+    <details class="setup-card">
+      <summary><span class="ico" style="background:#0891b2">＋</span>住戸を1フロアずつ登録<span class="tw">›</span></summary>
+      <div class="setup-body">
+        <div class="row2">
+          <div class="field"><label>フロア名</label><input id="fName" type="text" placeholder="例）3F、B1、屋上"></div>
+          <div class="field" style="flex:0 0 110px"><label>戸数</label><select id="fUnits">${optsUnit}</select></div>
+        </div>
+        <div class="fill-btns">
+          <button type="button" id="fillNum">番号で埋める</button>
+          <button type="button" id="fillType">A・B・Cで埋める</button>
+        </div>
+        <div class="unit-inputs" id="fInputs"></div>
+        <button class="btn btn-primary" id="fCreate">このフロアを作成</button>
+      </div>
+    </details>
+
+    <details class="setup-card">
+      <summary><span class="ico" style="background:#7c3aed">★</span>オプション変更をまとめて記入<span class="tw">›</span></summary>
+      <div class="setup-body">
+        <div class="field"><label>オプションの内容</label>
+          <textarea class="opt-memo" id="optBulkText" placeholder="例）LD コンセント2口増設"></textarea></div>
+        <div class="field"><label>対象の住戸（フロアの「全室」で一括選択）</label>
+          <div class="tgt-box" id="optTargets"></div></div>
+        <button class="btn btn-primary" id="optBulkApply">選んだ部屋に記入</button>
+        <p class="hint">既に記入がある部屋には改行して追記します（同じ内容ならスキップ）。空の部屋にはそのまま記入。共用部はオプション欄が無いため対象外です。書いた内容は各部屋の詳細「オプション変更」欄に表示されます。</p>
+      </div>
+    </details>
+    </div>
+
+    <div class="sub-panel" id="subCommon">
+    <div class="setup-title">共用部を登録する</div>
+
+    <details class="setup-card" open>
+      <summary><span class="ico" style="background:var(--common)">▤</span>共用部をまとめて登録<span class="tw">›</span></summary>
+      <div class="setup-body">
+        <div class="row2">
+          <div class="field"><label>開始階</label><select id="cbStart">${optsFloor}</select></div>
+          <div class="field"><label>終了階</label><select id="cbEnd">${optsFloor}</select></div>
+        </div>
+        <label style="display:flex;align-items:center;gap:8px;margin:2px 0 12px;font-size:13px;font-weight:700;color:var(--ink-soft)">
+          <input type="checkbox" id="cbNoFloor" style="width:18px;height:18px"> フロア指定なし（階未設定で作成）
+        </label>
+        <p class="hint" style="margin-bottom:10px">作成する共用部を選択（各階に同じものを作成）。よく使うものはチップ、それ以外は自由入力で。</p>
+        <div class="chips" id="cbChips">${chips}</div>
+        <div class="free-add">
+          <input id="cbFree" type="text" placeholder="例）EPS、PS、MB">
+          <button type="button" id="cbFreeAdd">追加</button>
+        </div>
+        <div class="pending-list" id="cbPending"></div>
+        <div class="preview" id="cbPreview"></div>
+        <button class="btn btn-primary" id="cbCreate">各階にまとめて作成</button>
+      </div>
+    </details>
+
+    <details class="setup-card">
+      <summary><span class="ico" style="background:#0891b2">＋</span>共用部を1つずつ登録<span class="tw">›</span></summary>
+      <div class="setup-body">
+        <div class="row2">
+          <div class="field"><label>フロア（任意・手入力）</label><input id="csFloor" type="text" placeholder="例）屋上、B1（空欄で階未設定）"></div>
+          <div class="field"><label>名前</label><input id="csName" type="text" placeholder="例）受水槽室"></div>
+        </div>
+        <button class="btn btn-primary" id="csCreate">追加</button>
+        <p class="hint">追加すると名前だけ消えて、続けて入力できます（フロアは残ります）。よく使う名前はチップのある「まとめて登録」からも作れます。</p>
+      </div>
+    </details>
+    </div>
+
+    <div class="setup-title" style="margin-top:22px">登録済みの構成</div>
+    <div id="structBox"></div>
+    </div>
+
+    <div id="secBackup">
+    <div class="setup-title" style="margin-top:26px">データのバックアップ</div>
+    <div class="card" style="padding:14px;margin-bottom:18px">
+      <button class="btn btn-soft" id="backupExportBtn" style="width:100%;margin-bottom:10px">📦 バックアップを作る（書き出し）</button>
+      <button class="btn btn-soft" id="backupImportBtn" style="width:100%">♻ バックアップから復元（読み込み）</button>
+      <p class="hint">この端末のデータ（現場・部屋・進捗・写真・注意点）をファイルに丸ごと保存します。端末を変えるときや、消えると困る前の備えにどうぞ。<br>復元は今のデータを<b>すべて上書き</b>します。</p>
+    </div>
+    </div>
+
+    <div id="secWorker">
+    <div class="setup-title" style="margin-top:26px">この端末の役割</div>
+    <div class="card" style="padding:14px;margin-bottom:18px">
+      <button class="btn btn-soft" id="toWorkerBtn" style="width:100%">👷 作業員モードにする</button>
+      <p class="hint">この端末を作業員用にします。登録・工程・設定などは隠れ、「作業リストを取り込む／完了を返す」だけのシンプルな画面になります。いつでも職長モードに戻せます。</p>
+    </div>
+    </div>
+  `;
+
+  // 現場名
+  el("setSiteName").addEventListener("change",()=>{ db.site.name=el("setSiteName").value.trim()||"新しい現場"; save(); });
+
+  // データのバックアップ
+  el("backupExportBtn").addEventListener("click",exportBackup);
+  el("backupImportBtn").addEventListener("click",()=>el("restorePicker").click());
+
+  // この端末の役割
+  el("toWorkerBtn").addEventListener("click",async ()=>{
+    const ok=await uiConfirm("この端末を作業員モードにしますか？\n登録・設定などは隠れ、シンプルな画面になります。",{okText:"作業員モードにする",okStyle:"primary"});
+    if(!ok) return;
+    setRole("worker"); applyMode(); toast("作業員モードに切り替えました");
+  });
+
+  // 上段タブ切り替え（工程／登録）
+  el("viewSetup").querySelectorAll(".tab-btn").forEach(b=>b.addEventListener("click",()=>{
+    el("viewSetup").querySelectorAll(".tab-btn").forEach(x=>x.classList.toggle("active",x===b));
+    const t=b.dataset.tab;
+    el("tabProc").classList.toggle("active",t==="proc");
+    el("tabReg").classList.toggle("active",t==="reg");
+    window.scrollTo(0,0);
+  }));
+
+  // サブタブ切り替え（住戸／共用部）
+  el("viewSetup").querySelectorAll(".subtab-btn").forEach(b=>b.addEventListener("click",()=>{
+    el("viewSetup").querySelectorAll(".subtab-btn").forEach(x=>x.classList.toggle("active",x===b));
+    const s=b.dataset.sub;
+    el("subUnit").classList.toggle("active",s==="unit");
+    el("subCommon").classList.toggle("active",s==="common");
+    window.scrollTo(0,0);
+  }));
+
+  // 工程タブのサブタブ切り替え（住戸／共用部）
+  el("viewSetup").querySelectorAll(".ptab-btn").forEach(b=>b.addEventListener("click",()=>{
+    el("viewSetup").querySelectorAll(".ptab-btn").forEach(x=>x.classList.toggle("active",x===b));
+    const s=b.dataset.psub;
+    el("psubUnit").classList.toggle("active",s==="unit");
+    el("psubCommon").classList.toggle("active",s==="common");
+    window.scrollTo(0,0);
+  }));
+
+  // 完了期限まとめ登録
+  el("openDlBtn").addEventListener("click",openDeadlineModal);
+
+  // 工程（チェック項目）
+  const pnc=el("procNewCat");
+  if(pnc) pnc.innerHTML=catList().map(c=>`<option value="${c.id}">${escapeHtml(c.name)}</option>`).join("");
+  el("procAdd").addEventListener("click",()=>{
+    const v=el("procNew").value.trim(); if(!v) return;
+    const catId=(el("procNewCat")&&el("procNewCat").value)||(catList()[0]&&catList()[0].id);
+    db.processes=db.processes||[]; db.processes.push({id:uid(),name:v,catId});
+    el("procNew").value=""; save(); renderProcessList();
+  });
+  renderProcessList();
+
+  // 工程を初期値に揃える
+  const prb=el("procResetBtn");
+  if(prb) prb.addEventListener("click",()=>{
+    uiConfirm("工程の並び・分類を初期値（おすすめ）に揃えます。\n初期値にない工程は削除され、その工程のチェック・期限は消えます。\nよろしいですか？",{okText:"揃える",okStyle:"primary"}).then(ok=>{
+      if(ok){
+        resetProcessesToDefault();
+        const pncEl=el("procNewCat");
+        if(pncEl) pncEl.innerHTML=catList().map(c=>`<option value="${c.id}">${escapeHtml(c.name)}</option>`).join("");
+        renderProcessList();
+        toast("工程を初期値に揃えました");
+      }
+    });
+  });
+
+  // 共用部の工程（住戸とは別管理）
+  const cpnc=el("cprocNewCat");
+  if(cpnc) cpnc.innerHTML=commonCatList().map(c=>`<option value="${c.id}">${escapeHtml(c.name)}</option>`).join("");
+  const cpAdd=el("cprocAdd");
+  if(cpAdd) cpAdd.addEventListener("click",()=>{
+    const v=el("cprocNew").value.trim(); if(!v) return;
+    const catId=(el("cprocNewCat")&&el("cprocNewCat").value)||(commonCatList()[0]&&commonCatList()[0].id);
+    db.commonProcesses=db.commonProcesses||[]; db.commonProcesses.push({id:uid(),name:v,catId});
+    el("cprocNew").value=""; save(); renderCommonProcessList();
+  });
+  renderCommonProcessList();
+
+  const cpCopy=el("cprocCopyBtn");
+  if(cpCopy) cpCopy.addEventListener("click",()=>{
+    uiConfirm("今の住戸の工程・分類を共用部にコピーします。\n共用部の今の工程は置き換わります（共用部のチェック・期限は付け直しになります）。\nよろしいですか？",{okText:"コピーする",okStyle:"primary"}).then(ok=>{
+      if(!ok) return;
+      db.commonCategories=(db.categories||[]).map(c=>({id:c.id,name:c.name}));
+      db.commonProcesses=(db.processes||[]).map(p=>({id:uid(),name:p.name,catId:p.catId}));
+      save();
+      const el2=el("cprocNewCat");
+      if(el2) el2.innerHTML=commonCatList().map(c=>`<option value="${c.id}">${escapeHtml(c.name)}</option>`).join("");
+      renderCommonProcessList();
+      toast("住戸の工程を共用部にコピーしました");
+    });
+  });
+
+  // 一括
+  const updateBPreview=()=>{
+    let s=parseInt(el("bStart").value,10), e=parseInt(el("bEnd").value,10), u=parseInt(el("bUnits").value,10);
+    if(e<s){ const t=s;s=e;e=t; }
+    const total=(e-s+1)*u;
+    let ex;
+    if(el("bMode").value==="type") ex=`各階 A〜${"ABCDEFGHIJKLMNOPQRST"[u-1]||"…"}`;
+    else ex=`例：${s}F→${s*100+1}… / ${e}F→${e*100+1}…`;
+    el("bPreview").textContent=`${s}F〜${e}F の各階 ${u}戸　${ex}　合計 ${total}戸を作成`;
+  };
+  ["bStart","bEnd","bUnits","bMode"].forEach(id=>el(id).addEventListener("change",updateBPreview));
+  el("bUnits").value="4"; updateBPreview();
+  el("bCreate").addEventListener("click",()=>{
+    let s=parseInt(el("bStart").value,10), e=parseInt(el("bEnd").value,10), u=parseInt(el("bUnits").value,10);
+    if(e<s){ const t=s;s=e;e=t; }
+    const mode=el("bMode").value;
+    const types=(el("bTypes").value||"").split(",").map(x=>x.trim());
+    let n=0;
+    for(let f=s;f<=e;f++) for(let i=1;i<=u;i++){
+      const nm = (mode==="type") ? ("ABCDEFGHIJKLMNOPQRST"[i-1]||String(i)) : String(f*100+i);
+      const ty = types[i-1] || "";
+      db.locations.push({id:uid(),floor:f+"F",name:nm,type:ty,kind:"unit",status:"todo",photos:[],optionMemo:"",updatedAt:Date.now()});
+      n++;
+    }
+    save(); renderStructure(); toast(`${n}戸を作成しました`);
+  });
+
+  // 1フロアずつ
+  const buildUnitInputs=(count,mode)=>{
+    const c=el("fInputs"); c.innerHTML="";
+    const base=(floorNum(el("fName").value)||1)*100;
+    for(let i=0;i<count;i++){
+      const row=document.createElement("div"); row.className="unit-row";
+      const nm=document.createElement("input"); nm.type="text"; nm.className="u-name";
+      nm.value=String(base+i+1);
+      const ty=document.createElement("input"); ty.type="text"; ty.className="u-type"; ty.placeholder="タイプ";
+      if(mode==="type") ty.value="ABCDEFGHIJKLMNOPQRST"[i]||String(i+1);
+      row.appendChild(nm); row.appendChild(ty);
+      c.appendChild(row);
+    }
+  };
+  el("fUnits").value="4"; buildUnitInputs(4,"num");
+  el("fUnits").addEventListener("change",()=>buildUnitInputs(parseInt(el("fUnits").value,10),"num"));
+  el("fName").addEventListener("change",()=>buildUnitInputs(parseInt(el("fUnits").value,10),"num"));
+  el("fillNum").addEventListener("click",()=>buildUnitInputs(parseInt(el("fUnits").value,10),"num"));
+  el("fillType").addEventListener("click",()=>buildUnitInputs(parseInt(el("fUnits").value,10),"type"));
+  el("fCreate").addEventListener("click",()=>{
+    const fname=el("fName").value.trim();
+    if(!fname){ toast("フロア名を入力してください"); return; }
+    const rows=el("fInputs").querySelectorAll(".unit-row"); let n=0;
+    rows.forEach(row=>{
+      const v=row.querySelector(".u-name").value.trim();
+      const ty=row.querySelector(".u-type").value.trim();
+      if(v){ db.locations.push({id:uid(),floor:fname,name:v,type:ty,kind:"unit",status:"todo",photos:[],optionMemo:"",updatedAt:Date.now()}); n++; }
+    });
+    if(n===0){ toast("部屋番号を入力してください"); return; }
+    save(); el("fName").value=""; buildUnitInputs(parseInt(el("fUnits").value,10),"num"); renderStructure(); toast(`${fname} に ${n}戸を作成しました`);
+  });
+
+  // 共用部をまとめて登録（開始階〜終了階の各階に、選んだ共用部を作成）
+  const updateCbPreview=()=>{
+    const pv=el("cbPreview"); if(!pv) return;
+    if(commonPending.length===0){ pv.textContent="作成する共用部を選んでください"; return; }
+    const noFloor=el("cbNoFloor").checked;
+    let s=parseInt(el("cbStart").value,10), e=parseInt(el("cbEnd").value,10);
+    if(e<s){ const t=s;s=e;e=t; }
+    const floors=noFloor?1:(e-s+1);
+    const range=noFloor?"階未設定":`${s}F〜${e}F`;
+    pv.textContent=`${range} に ${commonPending.join("、")} を作成（合計 ${commonPending.length*floors}件）`;
+  };
+  el("cbChips").querySelectorAll(".chip").forEach(ch=>{
+    ch.addEventListener("click",()=>{
+      const name=ch.dataset.c;
+      if(ch.classList.toggle("on")){ if(!commonPending.includes(name)) commonPending.push(name); }
+      else commonPending=commonPending.filter(x=>x!==name);
+      renderPending(); updateCbPreview();
+    });
+  });
+  el("cbFreeAdd").addEventListener("click",()=>{
+    const v=el("cbFree").value.trim(); if(!v) return;
+    if(!commonPending.includes(v)) commonPending.push(v);
+    el("cbFree").value=""; renderPending(); updateCbPreview();
+  });
+  el("cbNoFloor").addEventListener("change",()=>{
+    const dis=el("cbNoFloor").checked;
+    el("cbStart").disabled=dis; el("cbEnd").disabled=dis;
+    updateCbPreview();
+  });
+  ["cbStart","cbEnd"].forEach(id=>el(id).addEventListener("change",updateCbPreview));
+  updateCbPreview();
+  el("cbCreate").addEventListener("click",()=>{
+    if(commonPending.length===0){ toast("共用部を選んでください"); return; }
+    const noFloor=el("cbNoFloor").checked;
+    let s=parseInt(el("cbStart").value,10), e=parseInt(el("cbEnd").value,10);
+    if(e<s){ const t=s;s=e;e=t; }
+    let n=0;
+    const makeOne=(floor,name)=>{ db.locations.push({id:uid(),floor,name,kind:"common",status:"todo",photos:[],updatedAt:Date.now()}); n++; };
+    if(noFloor){ commonPending.forEach(name=>makeOne("",name)); }
+    else{ for(let f=s;f<=e;f++) commonPending.forEach(name=>makeOne(f+"F",name)); }
+    save(); commonPending=[];
+    el("cbChips").querySelectorAll(".chip.on").forEach(c=>c.classList.remove("on"));
+    renderPending(); updateCbPreview(); renderStructure();
+    toast(`共用部 ${n}件を作成しました`);
+  });
+
+  // 共用部を1つずつ登録（フロア手入力＋名前で1件ずつ）
+  const csCreate=()=>{
+    const name=(el("csName").value||"").trim();
+    if(!name){ toast("名前を入力してください"); return; }
+    const fl=(el("csFloor").value||"").trim();
+    db.locations.push({id:uid(),floor:fl,name,kind:"common",status:"todo",photos:[],updatedAt:Date.now()});
+    save(); el("csName").value=""; el("csName").focus(); renderStructure();
+    toast(`「${name}」を作成しました`);
+  };
+  el("csCreate").addEventListener("click",csCreate);
+  el("csName").addEventListener("keydown",e=>{ if(e.key==="Enter") csCreate(); });
+
+  // オプション変更をまとめて記入
+  const optTgtBox=el("optTargets");
+  if(optTgtBox){
+    renderTargets(optTgtBox, null, {unitsOnly:true});
+    const optCard=optTgtBox.closest("details");
+    if(optCard) optCard.addEventListener("toggle",()=>{ if(optCard.open) renderTargets(optTgtBox, null, {unitsOnly:true}); });
+    const applyBtn=el("optBulkApply");
+    if(applyBtn) applyBtn.addEventListener("click",()=>{
+      const text=(el("optBulkText").value||"").trim();
+      if(!text){ toast("オプションの内容を入力してください"); return; }
+      const ids=getSelectedTargets(optTgtBox, null);
+      const targets=db.locations.filter(l=>ids.includes(l.id) && l.kind==="unit");
+      if(targets.length===0){ toast("対象の住戸を選んでください"); return; }
+      let cnt=0;
+      targets.forEach(l=>{
+        const cur=(l.optionMemo||"").replace(/\s+$/,"");
+        const lines=cur.split("\n").map(s=>s.trim());
+        if(lines.includes(text)) return; // 同じ内容は重複させない
+        l.optionMemo = cur ? (cur + "\n" + text) : text;
+        l.updatedAt=Date.now(); cnt++;
+      });
+      save();
+      el("optBulkText").value="";
+      renderTargets(optTgtBox, null, {unitsOnly:true});
+      renderStructure();
+      toast(cnt>0 ? `${cnt}戸のオプション変更メモに記入しました` : "選んだ部屋には既に同じ内容がありました");
+    });
+  }
+
+  renderStructure();
+}
+
+function renderPending(){
+  const box=el("cbPending"); if(!box) return;
+  box.innerHTML=commonPending.map((c,i)=>`<span class="pending-tag">${escapeHtml(c)}<button data-i="${i}">×</button></span>`).join("");
+  box.querySelectorAll("button").forEach(b=>b.addEventListener("click",()=>{
+    const name=commonPending[parseInt(b.dataset.i,10)];
+    commonPending=commonPending.filter(x=>x!==name);
+    const chips=el("cbChips");
+    const chip=chips&&Array.from(chips.querySelectorAll(".chip")).find(c=>c.dataset.c===name);
+    if(chip) chip.classList.remove("on");
+    renderPending();
+  }));
+}
+
+function resetProcessesToDefault(){
+  // 既存工程を「読み替え後の名前」で引けるようにする（同名は最初の1つを優先）
+  const byName={};
+  (db.processes||[]).forEach(p=>{ const k=PROC_RENAMES[p.name]||p.name; if(!(k in byName)) byName[k]=p; });
+  // 既定の分類が無ければ用意する
+  if(!Array.isArray(db.categories)) db.categories=[];
+  DEFAULT_CATEGORIES.forEach(dc=>{ if(!db.categories.some(c=>c.id===dc.id)) db.categories.push({id:dc.id,name:dc.name}); });
+  // 既定の並び・分類で工程を作り直す。同名（読み替え含む）は既存idを引き継ぎ進捗を温存
+  const newProcs=DEFAULT_PROCESSES.map(dp=>{
+    const ex=byName[dp.name];
+    return ex ? {id:ex.id,name:dp.name,catId:dp.cat} : {id:uid(),name:dp.name,catId:dp.cat};
+  });
+  const keep=new Set(newProcs.map(p=>p.id));
+  db.processes=newProcs;
+  // 既定に無い工程に紐づく進捗・注意点を整理（住戸のみ。共用部は別管理なので触らない）
+  const keepCommon=new Set((db.commonProcesses||[]).map(p=>p.id));
+  db.locations.forEach(l=>{
+    if(l.kind==="common") return;
+    if(l.progress) Object.keys(l.progress).forEach(pid=>{ if(!keep.has(pid)) delete l.progress[pid]; });
+  });
+  db.notes.forEach(n=>{ if(n.processId && !keep.has(n.processId) && !keepCommon.has(n.processId)) n.processId=null; });
+  save();
+}
+
+function renderProcessList(){
+  const box=el("procEditList"); if(!box) return;
+  const cats=catList();
+  const ps=db.processes||[];
+  if(ps.length===0){ box.innerHTML=`<div class="empty">工程がありません。下から追加してください</div>`; return; }
+  box.innerHTML="";
+  const moveProc=(p,dir)=>{
+    const same=db.processes.filter(x=>x.catId===p.catId);
+    const i=same.indexOf(p), j=i+dir;
+    if(j<0||j>=same.length) return;
+    const a=db.processes, ia=a.indexOf(same[i]), ib=a.indexOf(same[j]);
+    const t=a[ia]; a[ia]=a[ib]; a[ib]=t; save(); renderProcessList();
+  };
+  const otherCat=(p)=>{
+    if(cats.length<2) return null;
+    const idx=cats.findIndex(c=>c.id===p.catId);
+    return cats[(idx+1)%cats.length];
+  };
+  cats.forEach(c=>{
+    const head=document.createElement("div"); head.className="proc-cat-head"; head.textContent=c.name;
+    box.appendChild(head);
+    const list=db.processes.filter(x=>x.catId===c.id);
+    if(list.length===0){
+      const e=document.createElement("div"); e.className="proc-cat-empty"; e.textContent="（この分類の工程はまだありません）";
+      box.appendChild(e); return;
+    }
+    list.forEach((p,idx)=>{
+      const row=document.createElement("div"); row.className="proc-edit";
+      const oc=otherCat(p);
+      const moveBtn = oc ? `<button class="pe-move">↔${escapeHtml(oc.name)}</button>` : "";
+      row.innerHTML=`
+        <button class="pe-name">${escapeHtml(p.name)}</button>
+        ${moveBtn}
+        <button class="pe-up" ${idx===0?"disabled":""}>▲</button>
+        <button class="pe-down" ${idx===list.length-1?"disabled":""}>▼</button>
+        <button class="pe-del">削除</button>`;
+      row.querySelector(".pe-name").addEventListener("click",()=>{
+        uiPrompt("工程名を編集",p.name).then(nn=>{ if(nn!==null&&nn.trim()){ p.name=nn.trim(); save(); renderProcessList(); } });
+      });
+      const mb=row.querySelector(".pe-move");
+      if(mb) mb.addEventListener("click",()=>{ const o=otherCat(p); if(o){ p.catId=o.id; save(); renderProcessList(); } });
+      row.querySelector(".pe-up").addEventListener("click",()=>moveProc(p,-1));
+      row.querySelector(".pe-down").addEventListener("click",()=>moveProc(p,1));
+      row.querySelector(".pe-del").addEventListener("click",()=>{
+        uiConfirm(`工程「${p.name}」を削除しますか？`).then(ok=>{ if(ok){ db.processes=db.processes.filter(x=>x.id!==p.id); save(); renderProcessList(); } });
+      });
+      box.appendChild(row);
+    });
+  });
+}
+
+function pruneNotes(ids){
+  db.notes.forEach(n=>{ n.locationIds=(n.locationIds||[]).filter(x=>!ids.includes(x)); });
+  db.notes=db.notes.filter(n=>(n.locationIds||[]).length>0);
+}
+
+function renderCommonProcessList(){
+  const box=el("cprocEditList"); if(!box) return;
+  const cats=commonCatList();
+  const ps=db.commonProcesses||[];
+  if(ps.length===0){ box.innerHTML=`<div class="empty">共用部の工程はまだありません。下から追加するか「住戸の工程をコピー」を使ってください</div>`; return; }
+  box.innerHTML="";
+  const moveProc=(p,dir)=>{
+    const same=db.commonProcesses.filter(x=>x.catId===p.catId);
+    const i=same.indexOf(p), j=i+dir;
+    if(j<0||j>=same.length) return;
+    const a=db.commonProcesses, ia=a.indexOf(same[i]), ib=a.indexOf(same[j]);
+    const t=a[ia]; a[ia]=a[ib]; a[ib]=t; save(); renderCommonProcessList();
+  };
+  const otherCat=(p)=>{
+    if(cats.length<2) return null;
+    const idx=cats.findIndex(c=>c.id===p.catId);
+    return cats[(idx+1)%cats.length];
+  };
+  cats.forEach(c=>{
+    const head=document.createElement("div"); head.className="proc-cat-head"; head.textContent=c.name;
+    box.appendChild(head);
+    const list=db.commonProcesses.filter(x=>x.catId===c.id);
+    if(list.length===0){
+      const e=document.createElement("div"); e.className="proc-cat-empty"; e.textContent="（この分類の工程はまだありません）";
+      box.appendChild(e); return;
+    }
+    list.forEach((p,idx)=>{
+      const row=document.createElement("div"); row.className="proc-edit";
+      const oc=otherCat(p);
+      const moveBtn = oc ? `<button class="pe-move">↔${escapeHtml(oc.name)}</button>` : "";
+      row.innerHTML=`
+        <button class="pe-name">${escapeHtml(p.name)}</button>
+        ${moveBtn}
+        <button class="pe-up" ${idx===0?"disabled":""}>▲</button>
+        <button class="pe-down" ${idx===list.length-1?"disabled":""}>▼</button>
+        <button class="pe-del">削除</button>`;
+      row.querySelector(".pe-name").addEventListener("click",()=>{
+        uiPrompt("工程名を編集",p.name).then(nn=>{ if(nn!==null&&nn.trim()){ p.name=nn.trim(); save(); renderCommonProcessList(); } });
+      });
+      const mb=row.querySelector(".pe-move");
+      if(mb) mb.addEventListener("click",()=>{ const o=otherCat(p); if(o){ p.catId=o.id; save(); renderCommonProcessList(); } });
+      row.querySelector(".pe-up").addEventListener("click",()=>moveProc(p,-1));
+      row.querySelector(".pe-down").addEventListener("click",()=>moveProc(p,1));
+      row.querySelector(".pe-del").addEventListener("click",()=>{
+        uiConfirm(`工程「${p.name}」を削除しますか？`).then(ok=>{ if(ok){ db.commonProcesses=db.commonProcesses.filter(x=>x.id!==p.id); save(); renderCommonProcessList(); } });
+      });
+      box.appendChild(row);
+    });
+  });
+}
+
+function renderStructure(){
+  const box=el("structBox"); if(!box) return;
+  const {order,groups,commons}=grouped();
+  if(order.length===0&&commons.length===0){ box.innerHTML=`<div class="empty">まだ登録がありません</div>`; return; }
+  box.innerHTML="";
+  const moveFloor=(floor,dir)=>{
+    let fo=order.slice();               // 現在の表示順から作り直して入れ替え
+    const i=fo.indexOf(floor), j=i+dir;
+    if(i<0||j<0||j>=fo.length) return;
+    const t=fo[i]; fo[i]=fo[j]; fo[j]=t;
+    db.ui=db.ui||{}; db.ui.floorOrder=fo;
+    save(); renderStructure();
+  };
+  const mkGroup=(label,locs,isCommon,idx,total)=>{
+    const unitWord=isCommon?"件":"戸";
+    const d=document.createElement("details"); d.className="struct-fg"+(isCommon?" common":"");
+    const key=(isCommon?"c:":"u:")+label;
+    d.open=structOpen.has(key);
+    d.addEventListener("toggle",()=>{ if(d.open) structOpen.add(key); else structOpen.delete(key); });
+    const sum=document.createElement("summary");
+    const moveBtns = isCommon ? "" :
+      `<button type="button" class="sf-move sf-up" ${idx===0?"disabled":""} aria-label="上へ">▲</button>`+
+      `<button type="button" class="sf-move sf-down" ${idx===total-1?"disabled":""} aria-label="下へ">▼</button>`;
+    sum.innerHTML=`<span class="sf-tw">›</span><span class="sf-name"${isCommon?' style="color:var(--common)"':''}>${escapeHtml(label)}</span><span class="sf-count">${locs.length}${unitWord}</span>${moveBtns}<button type="button" class="sf-del">削除</button>`;
+    if(!isCommon){
+      sum.querySelector(".sf-up").addEventListener("click",e=>{ e.preventDefault(); e.stopPropagation(); moveFloor(label,-1); });
+      sum.querySelector(".sf-down").addEventListener("click",e=>{ e.preventDefault(); e.stopPropagation(); moveFloor(label,1); });
+    }
+    sum.querySelector(".sf-del").addEventListener("click",e=>{
+      e.preventDefault(); e.stopPropagation();
+      uiConfirm(`「${label}」の ${locs.length}${unitWord}をすべて削除しますか？`).then(ok=>{
+        if(!ok) return;
+        const ids=locs.map(l=>l.id);
+        db.locations=db.locations.filter(l=>!ids.includes(l.id));
+        pruneNotes(ids); save(); renderStructure();
+      });
+    });
+    d.appendChild(sum);
+    const rooms=document.createElement("div"); rooms.className="sf-rooms";
+    locs.forEach(l=>{
+      const r=document.createElement("div"); r.className="sf-room";
+      let badge="", extraBtn="";
+      if(isCommon){
+        if(l.floor) badge=`<span class="type-badge">${escapeHtml(l.floor)}</span>`;
+        extraBtn=`<button type="button" class="sf-floor">フロア</button>`;
+      }else{
+        if(l.type) badge=`<span class="type-badge">${escapeHtml(l.type)}</span>`;
+        extraBtn=`<button type="button" class="sf-type">タイプ</button>`;
+      }
+      r.innerHTML=`<button type="button" class="sf-rename">${escapeHtml(l.name)}${badge}</button>${extraBtn}<button type="button" class="sf-rdel">×</button>`;
+      r.querySelector(".sf-rename").addEventListener("click",()=>{
+        uiPrompt(isCommon?"名称を編集":"部屋番号を編集",l.name).then(nn=>{
+          if(nn!==null&&nn.trim()){ l.name=nn.trim(); l.updatedAt=Date.now(); save(); renderStructure(); }
+        });
+      });
+      const tb=r.querySelector(".sf-type");
+      if(tb) tb.addEventListener("click",()=>{
+        uiPrompt("タイプ名を入力（例：A）。空欄で消去できます",l.type||"").then(t=>{
+          if(t!==null){ l.type=t.trim(); l.updatedAt=Date.now(); save(); renderStructure(); }
+        });
+      });
+      const fb=r.querySelector(".sf-floor");
+      if(fb) fb.addEventListener("click",()=>{
+        uiPrompt("フロアを入力（例：3F、屋上）。空欄で「階未設定」",l.floor||"").then(f=>{
+          if(f!==null){ l.floor=f.trim(); l.updatedAt=Date.now(); save(); renderStructure(); }
+        });
+      });
+      r.querySelector(".sf-rdel").addEventListener("click",()=>{
+        uiConfirm(`「${l.name}」を削除しますか？`).then(ok=>{
+          if(!ok) return;
+          db.locations=db.locations.filter(x=>x.id!==l.id);
+          pruneNotes([l.id]); save(); renderStructure();
+        });
+      });
+      rooms.appendChild(r);
+    });
+    d.appendChild(rooms);
+    return d;
+  };
+  // 共用部：フロア▲▼（フロア並べ替え）と各行▲▼（同フロア内の個別並べ替え）
+  const moveCommonFloor=(f,dir)=>{
+    const cs=db.locations.filter(l=>l.kind==="common");
+    let co=commonFloorGroups(cs).order.slice();
+    const i=co.indexOf(f), j=i+dir;
+    if(i<0||j<0||j>=co.length) return;
+    const t=co[i]; co[i]=co[j]; co[j]=t;
+    db.ui=db.ui||{}; db.ui.commonFloorOrder=co;
+    save(); renderStructure();
+  };
+  const moveCommonItem=(l,locs,dir)=>{
+    const i=locs.indexOf(l), j=i+dir;
+    if(i<0||j<0||j>=locs.length) return;
+    const a=db.locations, ia=a.indexOf(locs[i]), ib=a.indexOf(locs[j]);
+    const t=a[ia]; a[ia]=a[ib]; a[ib]=t;
+    save(); renderStructure();
+  };
+  const mkCommonGroup=(f,locs,idx,total)=>{
+    const label=f||"階未設定";
+    const d=document.createElement("details"); d.className="struct-fg common";
+    const key="c:"+f;
+    d.open=structOpen.has(key);
+    d.addEventListener("toggle",()=>{ if(d.open) structOpen.add(key); else structOpen.delete(key); });
+    const sum=document.createElement("summary");
+    const moveBtns=
+      `<button type="button" class="sf-move sf-up" ${idx===0?"disabled":""} aria-label="上へ">▲</button>`+
+      `<button type="button" class="sf-move sf-down" ${idx===total-1?"disabled":""} aria-label="下へ">▼</button>`;
+    sum.innerHTML=`<span class="sf-tw">›</span><span class="sf-name" style="color:var(--common)">共用 ${escapeHtml(label)}</span><span class="sf-count">${locs.length}件</span>${moveBtns}<button type="button" class="sf-del">削除</button>`;
+    sum.querySelector(".sf-up").addEventListener("click",e=>{ e.preventDefault(); e.stopPropagation(); moveCommonFloor(f,-1); });
+    sum.querySelector(".sf-down").addEventListener("click",e=>{ e.preventDefault(); e.stopPropagation(); moveCommonFloor(f,1); });
+    sum.querySelector(".sf-del").addEventListener("click",e=>{
+      e.preventDefault(); e.stopPropagation();
+      uiConfirm(`「共用 ${label}」の ${locs.length}件をすべて削除しますか？`).then(ok=>{
+        if(!ok) return;
+        const ids=locs.map(l=>l.id);
+        db.locations=db.locations.filter(l=>!ids.includes(l.id));
+        pruneNotes(ids); save(); renderStructure();
+      });
+    });
+    d.appendChild(sum);
+    const rooms=document.createElement("div"); rooms.className="sf-rooms";
+    locs.forEach((l,ridx)=>{
+      const r=document.createElement("div"); r.className="sf-room";
+      const badge = l.floor ? `<span class="type-badge">${escapeHtml(l.floor)}</span>` : "";
+      r.innerHTML=`<button type="button" class="sf-rename">${escapeHtml(l.name)}${badge}</button>`+
+        `<button type="button" class="sf-move sf-rup" ${ridx===0?"disabled":""} aria-label="上へ">▲</button>`+
+        `<button type="button" class="sf-move sf-rdown" ${ridx===locs.length-1?"disabled":""} aria-label="下へ">▼</button>`+
+        `<button type="button" class="sf-floor">フロア</button>`+
+        `<button type="button" class="sf-rdel">×</button>`;
+      r.querySelector(".sf-rename").addEventListener("click",()=>{
+        uiPrompt("名称を編集",l.name).then(nn=>{ if(nn!==null&&nn.trim()){ l.name=nn.trim(); l.updatedAt=Date.now(); save(); renderStructure(); } });
+      });
+      r.querySelector(".sf-floor").addEventListener("click",()=>{
+        uiPrompt("フロアを入力（例：3F、屋上）。空欄で「階未設定」",l.floor||"").then(nf=>{ if(nf!==null){ l.floor=nf.trim(); l.updatedAt=Date.now(); save(); renderStructure(); } });
+      });
+      r.querySelector(".sf-rup").addEventListener("click",()=>moveCommonItem(l,locs,-1));
+      r.querySelector(".sf-rdown").addEventListener("click",()=>moveCommonItem(l,locs,1));
+      r.querySelector(".sf-rdel").addEventListener("click",()=>{
+        uiConfirm(`「${l.name}」を削除しますか？`).then(ok=>{ if(!ok) return; db.locations=db.locations.filter(x=>x.id!==l.id); pruneNotes([l.id]); save(); renderStructure(); });
+      });
+      rooms.appendChild(r);
+    });
+    d.appendChild(rooms);
+    return d;
+  };
+
+  order.forEach((floor,idx)=> box.appendChild(mkGroup(floor,groups[floor],false,idx,order.length)) );
+  if(commons.length){
+    const cg=commonFloorGroups(commons);
+    cg.order.forEach((f,idx)=> box.appendChild(mkCommonGroup(f,cg.groups[f],idx,cg.order.length)) );
+  }
+}
+
+/* =========================================================
+   ターゲット選択（部屋/フロアのチェックツリー）
+   ========================================================= */
+function renderTargets(container, lockedId, opts){
+  opts=opts||{};
+  const {order,groups,commons}=grouped();
+  container.innerHTML="";
+  const mk=(label,locs,isCommon)=>{
+    const wrap=document.createElement("div"); wrap.className="tgt-floor";
+    wrap.innerHTML=`<label class="tgt-head"><input type="checkbox" class="tgt-all"><b>${escapeHtml(label)}</b><span>全室</span></label><div class="tgt-rooms"></div>`;
+    const rb=wrap.querySelector(".tgt-rooms");
+    locs.forEach(l=>{
+      const lock = l.id===lockedId;
+      const cb=document.createElement("label"); cb.className="tgt-room";
+      cb.innerHTML=`<input type="checkbox" class="tgt-cb" data-kind="${isCommon?"common":"unit"}" value="${l.id}" ${lock?"checked disabled":""}> ${escapeHtml(l.name)}`;
+      rb.appendChild(cb);
+    });
+    wrap.querySelector(".tgt-all").addEventListener("change",e=>{
+      rb.querySelectorAll(".tgt-cb:not([disabled])").forEach(cb=>cb.checked=e.target.checked);
+    });
+    container.appendChild(wrap);
+  };
+  order.forEach(f=>mk(f,groups[f],false));
+  if(commons.length && !opts.unitsOnly){
+    const cg=commonFloorGroups(commons);
+    if(cg.order.length>1) cg.order.forEach(f=>mk("共用 "+(f||"階未設定"), cg.groups[f], true));
+    else mk("共用部",commons,true);
+  }
+}
+function getSelectedTargets(container, lockedId){
+  const ids=new Set();
+  if(lockedId) ids.add(lockedId);
+  container.querySelectorAll(".tgt-cb:checked").forEach(cb=>ids.add(cb.value));
+  return [...ids];
+}
+
+/* =========================================================
+   注意点モーダル / 写真
+   ========================================================= */
+function openNoteModal(){
+  notePhotosBuffer=[]; el("inNote").value="";
+  // 工程セレクト（今の部屋の種別に合わせる）
+  const curLoc=db.locations.find(l=>l.id===currentLocId);
+  const sel=el("inNoteProc");
+  sel.innerHTML=`<option value="">（工程に紐づけない）</option>`+procListFor(curLoc).map(p=>`<option value="${p.id}">${escapeHtml(p.name)}</option>`).join("");
+  sel.value="";
+  // 適用範囲（今の部屋は固定で選択）
+  renderTargets(el("noteTargets"), currentLocId);
+  // 工程を選んだら、その工程が無い種別の部屋は選べないようにする（整合）
+  const curKind = (curLoc && curLoc.kind==="common") ? "common" : "unit";
+  const otherKind = curKind==="common" ? "unit" : "common";
+  const applyNoteProcFilter=()=>{
+    const tied=!!sel.value;
+    el("noteTargets").querySelectorAll('.tgt-cb[data-kind="'+otherKind+'"]').forEach(cb=>{
+      const row=cb.closest(".tgt-room");
+      if(tied){ cb.checked=false; cb.disabled=true; if(row) row.style.opacity=".4"; }
+      else if(cb.value!==currentLocId){ cb.disabled=false; if(row) row.style.opacity=""; }
+    });
+    const hint=el("noteTgtHint");
+    if(hint){
+      if(tied){ hint.style.display=""; hint.textContent="工程に紐づけたため、"+(curKind==="common"?"共用部":"住戸")+"のみ選べます（もう一方は別の工程セットです）"; }
+      else{ hint.style.display="none"; hint.textContent=""; }
+    }
+  };
+  sel.onchange=applyNoteProcFilter;
+  applyNoteProcFilter();
+  // 同じタイプ（住戸）／同じ名前（共用部）をまとめて選択
+  const sameBtn=el("noteSameType");
+  if(sameBtn){
+    const key = curKind==="common" ? (curLoc.name||"") : ((curLoc&&curLoc.type)||"");
+    if(key){
+      sameBtn.style.display="";
+      const selLabel = curKind==="common" ? `「${key}」をまとめて選択` : `タイプ${key} をまとめて選択`;
+      const offLabel = curKind==="common" ? `「${key}」の選択を解除` : `タイプ${key} の選択を解除`;
+      const setMatched=(on)=>{
+        el("noteTargets").querySelectorAll('.tgt-cb[data-kind="'+curKind+'"]:not([disabled])').forEach(cb=>{
+          const loc=db.locations.find(l=>l.id===cb.value);
+          const k = loc ? (curKind==="common" ? (loc.name||"") : (loc.type||"")) : "";
+          if(k===key) cb.checked=on;
+        });
+      };
+      let picked=false;
+      sameBtn.textContent=selLabel;
+      sameBtn.style.background=""; sameBtn.style.color="";
+      sameBtn.onclick=()=>{
+        picked=!picked;
+        setMatched(picked);
+        sameBtn.textContent = picked ? offLabel : selLabel;
+        sameBtn.style.background = picked ? "#e8f0fe" : "";
+        sameBtn.style.color = picked ? "var(--accent)" : "";
+      };
+    } else { sameBtn.style.display="none"; sameBtn.onclick=null; }
+  }
+  refreshNotePhotoGrid(); el("noteModal").classList.add("active");
+}
+function closeNoteModal(){ el("noteModal").classList.remove("active"); }
+function refreshNotePhotoGrid(){
+  renderPhotoGrid(el("notePhotoGrid"),notePhotosBuffer,{
+    onAdd:()=>{ pickerTarget="notePhoto"; el("filePicker").click(); },
+    onDelete:(i)=>{ notePhotosBuffer.splice(i,1); refreshNotePhotoGrid(); }
+  });
+}
+el("noteSave").addEventListener("click",()=>{
+  const text=el("inNote").value.trim();
+  if(!text&&notePhotosBuffer.length===0){ toast("内容か写真を入れてください"); return; }
+  const targets=getSelectedTargets(el("noteTargets"), currentLocId);
+  db.notes.push({
+    id:uid(), locationIds:targets, processId:el("inNoteProc").value||null,
+    text, photos:notePhotosBuffer.slice(), createdAt:Date.now()
+  });
+  save(); closeNoteModal(); renderDetail();
+  toast(targets.length>1 ? `${targets.length}部屋に注意点を登録しました` : "注意点を追加しました");
+});
+el("noteCancel").addEventListener("click",closeNoteModal);
+
+/* =========================================================
+   完了期限まとめ登録モーダル
+   ========================================================= */
+function openDeadlineModal(){
+  el("dlDate").value="";
+  const unitOpts=procList().map(p=>`<option value="${p.id}">${escapeHtml(p.name)}</option>`).join("");
+  const commonOpts=commonProcList().map(p=>`<option value="${p.id}">${escapeHtml(p.name)}</option>`).join("");
+  let html=`<option value="__all__">（全工程：各部屋の工程すべて）</option>`;
+  if(unitOpts) html+=`<optgroup label="住戸用の工程">${unitOpts}</optgroup>`;
+  if(commonOpts) html+=`<optgroup label="共用部用の工程">${commonOpts}</optgroup>`;
+  el("dlProc").innerHTML=html;
+  renderTargets(el("dlTargets"), null);
+  el("dlModal").classList.add("active");
+}
+function closeDeadlineModal(){ el("dlModal").classList.remove("active"); }
+el("dlSave").addEventListener("click",()=>{
+  const date=el("dlDate").value;
+  if(!date){ toast("完了期限の日付を選んでください"); return; }
+  const ids=getSelectedTargets(el("dlTargets"), null);
+  if(ids.length===0){ toast("対象の部屋を選んでください"); return; }
+  const pid=el("dlProc").value;
+  let applied=0;
+  db.locations.forEach(l=>{
+    if(!ids.includes(l.id)) return;
+    if(pid==="__all__"){ procListFor(l).forEach(p=>setProg(l,p.id,{deadline:date})); applied++; l.updatedAt=Date.now(); }
+    else if(procListFor(l).some(p=>p.id===pid)){ setProg(l,pid,{deadline:date}); applied++; l.updatedAt=Date.now(); }
+  });
+  save(); closeDeadlineModal(); renderStructure();
+  toast(applied>0 ? `${applied}部屋に完了期限を登録しました` : "選んだ工程に合う部屋がありませんでした");
+});
+el("dlCancel").addEventListener("click",closeDeadlineModal);
+el("dlModal").addEventListener("click",e=>{ if(e.target.id==="dlModal") closeDeadlineModal(); });
+
+el("filePicker").addEventListener("change",(ev)=>{
+  const file=ev.target.files&&ev.target.files[0]; ev.target.value="";
+  if(!file) return;
+  compressImage(file,800,0.6).then(d=>{
+    if(pickerTarget==="locationPhoto"){
+      const loc=db.locations.find(l=>l.id===currentLocId);
+      if(loc){ (loc.photos=loc.photos||[]).push(d); save(); renderDetail(); }
+    }else if(pickerTarget==="notePhoto"){ notePhotosBuffer.push(d); refreshNotePhotoGrid(); }
+  }).catch(()=>toast("写真を読み込めませんでした"));
+});
+el("restorePicker").addEventListener("change",(ev)=>{
+  const file=ev.target.files&&ev.target.files[0]; ev.target.value="";
+  if(!file) return;
+  importBackup(file);
+});
+function compressImage(file,maxSize,quality){
+  return new Promise((resolve,reject)=>{
+    const r=new FileReader();
+    r.onload=e=>{
+      const img=new Image();
+      img.onload=()=>{
+        let w=img.width,h=img.height;
+        if(w>h&&w>maxSize){ h=Math.round(h*maxSize/w); w=maxSize; }
+        else if(h>=w&&h>maxSize){ w=Math.round(w*maxSize/h); h=maxSize; }
+        const cv=document.createElement("canvas"); cv.width=w; cv.height=h;
+        cv.getContext("2d").drawImage(img,0,0,w,h);
+        resolve(cv.toDataURL("image/jpeg",quality));
+      };
+      img.onerror=reject; img.src=e.target.result;
+    };
+    r.onerror=reject; r.readAsDataURL(file);
+  });
+}
+
+/* =========================================================
+   データのバックアップ（書き出し／復元）
+   - 本体データ(genba_mansion_v1)を丸ごとファイル化／復元する
+   - 共有用キー(genba_share_test_v1)には触れない
+   ========================================================= */
+const BACKUP_TAG="genba_mansion_backup_v1";
+
+function backupFileName(){
+  const d=new Date(), p=n=>String(n).padStart(2,"0");
+  return `genba-backup-${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}.json`;
+}
+
+async function exportBackup(){
+  // 目印・日付つきの包みにする（復元時に正しいファイルか確認するため）
+  const envelope={ app:BACKUP_TAG, savedAt:new Date().toISOString(), data:db };
+  const text=JSON.stringify(envelope);
+  const fname=backupFileName();
+  const blob=new Blob([text],{type:"application/json"});
+
+  // スマホ：共有シートでファイルを保存できるなら、それを優先
+  try{
+    if(navigator.canShare){
+      const file=new File([blob],fname,{type:"application/json"});
+      if(navigator.canShare({files:[file]})){
+        await navigator.share({files:[file],title:"現場データのバックアップ"});
+        toast("バックアップを共有しました");
+        return;
+      }
+    }
+  }catch(e){ /* キャンセル等はダウンロードへ */ }
+
+  // それ以外：ふつうにダウンロード
+  try{
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement("a");
+    a.href=url; a.download=fname; document.body.appendChild(a); a.click();
+    a.remove(); setTimeout(()=>URL.revokeObjectURL(url),1000);
+    toast("バックアップを書き出しました");
+  }catch(e){ toast("書き出しできませんでした"); }
+}
+
+function readFileText(file){
+  return new Promise((resolve,reject)=>{
+    const r=new FileReader();
+    r.onload=e=>resolve(e.target.result);
+    r.onerror=reject; r.readAsText(file);
+  });
+}
+function isValidBackupData(o){
+  // 最低限、本体データの形をしているか確認
+  return !!o && typeof o==="object" && typeof o.site==="object"
+    && Array.isArray(o.locations) && Array.isArray(o.notes);
+}
+async function importBackup(file){
+  let text="";
+  try{ text=await readFileText(file); }
+  catch(e){ toast("ファイルを読み込めませんでした"); return; }
+
+  let parsed;
+  try{ parsed=JSON.parse(text); }
+  catch(e){ toast("バックアップファイルではないようです"); return; }
+
+  // 包み（envelope）でも、本体データそのままでも受け付ける
+  let data=null;
+  if(parsed && parsed.app===BACKUP_TAG && parsed.data) data=parsed.data;
+  else if(isValidBackupData(parsed)) data=parsed;
+
+  if(!isValidBackupData(data)){ toast("正しいバックアップファイルではありません"); return; }
+
+  const cnt=Array.isArray(data.locations)?data.locations.length:0;
+  let when="（日時不明）";
+  if(parsed && parsed.savedAt){ try{ when=new Date(parsed.savedAt).toLocaleString(); }catch(e){} }
+  const ok=await uiConfirm(
+    "このバックアップで復元しますか？\n\n保存日時："+when+"\n部屋の数："+cnt+"件\n\n※今この端末にあるデータは、すべて上書きされます。",
+    {okText:"復元する（上書き）"}
+  );
+  if(!ok) return;
+
+  try{ localStorage.setItem(STORE_KEY,JSON.stringify(data)); }
+  catch(e){ toast("復元できませんでした（写真が多すぎる可能性）"); return; }
+
+  // 読み込み直して画面を更新
+  load();
+  showView("list"); renderList();
+  toast("バックアップから復元しました");
+}
+
+/* =========================================================
+   画面遷移 / 共通
+   ========================================================= */
+function showView(name){
+  el("viewList").classList.toggle("active",name==="list");
+  el("viewDetail").classList.toggle("active",name==="detail");
+  el("viewSetup").classList.toggle("active",name==="setup");
+  el("viewDue").classList.toggle("active",name==="due");
+  el("viewByproc").classList.toggle("active",name==="byproc");
+  el("viewShare").classList.toggle("active",name==="share");
+  el("viewDoneReview").classList.toggle("active",name==="doneReview");
+  const navMap={list:"navList",byproc:"navByproc",due:"navDue"};
+  const onTab=Object.prototype.hasOwnProperty.call(navMap,name);
+  el("backBtn").style.display=onTab?"none":"flex";
+  el("menuBtn").style.display=onTab?"flex":"none";
+  el("gearBtn").style.display="none";
+  if(name!=="due") el("dueActionBar").classList.remove("show");
+  el("botNav").classList.toggle("show",onTab);
+  ["navList","navByproc","navDue"].forEach(id=>el(id).classList.toggle("active",navMap[name]===id));
+  el("appDrawer").classList.remove("open"); el("drawerScrim").classList.remove("show");
+  window.scrollTo(0,0);
+}
+function applySetupSection(section){
+  const titles={proc:"工程の設定",reg:"住戸・共用部の登録",backup:"バックアップ・復元"};
+  el("setupPageTitle").textContent=titles[section]||"設定";
+  el("setupTabs").style.display="none";
+  el("secWorker").style.display="none";
+  el("secSite").style.display=(section==="reg")?"":"none";
+  el("secBackup").style.display=(section==="backup")?"":"none";
+  el("tabProc").classList.toggle("active",section==="proc");
+  el("tabReg").classList.toggle("active",section==="reg");
+  window.scrollTo(0,0);
+}
+function goSetup(section){ renderSetup(); applySetupSection(section||"proc"); showView("setup"); }
+
+el("backBtn").addEventListener("click",()=>{ showView("list"); renderList(); });
+el("gearBtn").addEventListener("click",()=>goSetup("proc"));
+function openDrawer(){ el("drawerSite").textContent=el("siteName").textContent; el("appDrawer").classList.add("open"); el("drawerScrim").classList.add("show"); }
+function closeDrawer(){ el("appDrawer").classList.remove("open"); el("drawerScrim").classList.remove("show"); }
+el("menuBtn").addEventListener("click",openDrawer);
+el("drawerScrim").addEventListener("click",closeDrawer);
+el("drawerProc").addEventListener("click",()=>{ closeDrawer(); goSetup("proc"); });
+el("drawerReg").addEventListener("click",()=>{ closeDrawer(); goSetup("reg"); });
+el("drawerBackup").addEventListener("click",()=>{ closeDrawer(); goSetup("backup"); });
+el("drawerWorker").addEventListener("click",async ()=>{
+  closeDrawer();
+  const ok=await uiConfirm("この端末を作業員モードにしますか？\n登録・設定などは隠れ、シンプルな画面になります。",{okText:"作業員モードにする",okStyle:"primary"});
+  if(!ok) return;
+  setRole("worker"); applyMode(); toast("作業員モードに切り替えました");
+});
+el("emptyCta").addEventListener("click",()=>goSetup("reg"));
+el("dueBtn").addEventListener("click",goDue);
+el("byprocBtn").addEventListener("click",goByproc);
+el("navList").addEventListener("click",()=>{ if(!el("viewList").classList.contains("active")){ renderList(); showView("list"); } });
+el("navByproc").addEventListener("click",()=>{ if(!el("viewByproc").classList.contains("active")) goByproc(); });
+el("navDue").addEventListener("click",()=>{ if(!el("viewDue").classList.contains("active")) goDue(); });
+el("dueDoneBtn").addEventListener("click",async ()=>{
+  const checked=[...document.querySelectorAll("#viewDue .due-cb:checked")];
+  if(checked.length===0) return;
+  const ok=await uiConfirm(`${checked.length}件を完了にしますか？`,{okText:"完了にする",okStyle:"primary"});
+  if(!ok) return;
+  checked.forEach(cb=>{
+    const loc=db.locations.find(l=>l.id===cb.dataset.loc);
+    if(loc){ setProg(loc,cb.dataset.proc,{status:"done"}); loc.updatedAt=Date.now(); }
+  });
+  save(); renderDue();
+  toast(`${checked.length}件を完了にしました`);
+});
+el("noteModal").addEventListener("click",e=>{ if(e.target.id==="noteModal") closeNoteModal(); });
+
+let toastTimer;
+function toast(msg){ const t=el("toast"); t.textContent=msg; t.classList.add("show"); clearTimeout(toastTimer); toastTimer=setTimeout(()=>t.classList.remove("show"),1800); }
+
+/* アプリ内の確認・入力ポップアップ（ブラウザのconfirm/promptに依存しない） */
+function pickStatus(current,title){
+  // タップで 未着手/施工中/完了 を直接選ぶ。キャンセル・枠外タップは null を返す（変更しない）
+  return new Promise(resolve=>{
+    const opts=[{v:"todo",label:"未着手"},{v:"doing",label:"施工中"},{v:"done",label:"完了"}];
+    const ov=document.createElement("div"); ov.className="modal active";
+    ov.innerHTML=`<div class="sheet">
+      <h3>${escapeHtml(title||"進捗を選ぶ")}</h3>
+      <div class="status-pick">${opts.map(o=>
+        `<button type="button" class="status-pick-btn ${o.v===current?"cur":""}" data-v="${o.v}"><span class="sp-dot"></span>${o.label}${o.v===current?"<small>現在</small>":""}</button>`
+      ).join("")}</div>
+      <button type="button" class="btn btn-soft" data-v="__cancel">キャンセル</button>
+    </div>`;
+    const done=(v)=>{ ov.remove(); resolve(v); };
+    ov.addEventListener("click",e=>{
+      if(e.target===ov){ done(null); return; }
+      const b=e.target.closest&&e.target.closest("[data-v]");
+      if(!b) return;
+      const v=b.getAttribute("data-v");
+      done(v==="__cancel"?null:v);
+    });
+    document.body.appendChild(ov);
+  });
+}
+function uiConfirm(message,opts){
+  opts=opts||{};
+  const okText=opts.okText||"削除する";
+  const okBg=opts.okStyle==="primary"?"var(--accent)":"var(--danger)";
+  return new Promise(resolve=>{
+    const ov=document.createElement("div"); ov.className="modal active";
+    ov.innerHTML=`<div class="sheet">
+      <h3 style="font-weight:700;font-size:15px;white-space:pre-wrap">${escapeHtml(message)}</h3>
+      <div class="sheet-actions">
+        <button class="btn btn-soft" data-a="no">キャンセル</button>
+        <button class="btn btn-primary" data-a="yes" style="background:${okBg}">${escapeHtml(okText)}</button>
+      </div></div>`;
+    const done=(v)=>{ ov.remove(); resolve(v); };
+    ov.addEventListener("click",e=>{
+      if(e.target===ov) done(false);
+      const a=e.target.getAttribute&&e.target.getAttribute("data-a");
+      if(a==="yes") done(true); if(a==="no") done(false);
+    });
+    document.body.appendChild(ov);
+  });
+}
+function uiPrompt(message,defaultVal){
+  return new Promise(resolve=>{
+    const ov=document.createElement("div"); ov.className="modal active";
+    ov.innerHTML=`<div class="sheet">
+      <h3>${escapeHtml(message)}</h3>
+      <div class="field"><input id="__promptIn" type="text" value="${escapeHtml(defaultVal||"")}"></div>
+      <div class="sheet-actions">
+        <button class="btn btn-soft" data-a="no">キャンセル</button>
+        <button class="btn btn-primary" data-a="yes">決定</button>
+      </div></div>`;
+    const done=(v)=>{ ov.remove(); resolve(v); };
+    ov.addEventListener("click",e=>{
+      if(e.target===ov) done(null);
+      const a=e.target.getAttribute&&e.target.getAttribute("data-a");
+      if(a==="yes") done(ov.querySelector("#__promptIn").value);
+      if(a==="no") done(null);
+    });
+    document.body.appendChild(ov);
+    setTimeout(()=>{ const i=ov.querySelector("#__promptIn"); i.focus(); i.select(); },80);
+  });
+}
+
+/* =========================================================
+   共有（試作）：作業リストの書き出し／取り込み
+   - 本体データ(genba_mansion_v1)には書き込まない
+   - 取り込んだリストは別キー(genba_share_test_v1)に保存
+   ========================================================= */
+function b64encodeUtf8(str){
+  const bytes=new TextEncoder().encode(str);
+  let bin=""; for(let i=0;i<bytes.length;i++) bin+=String.fromCharCode(bytes[i]);
+  return btoa(bin);
+}
+function b64decodeUtf8(b64){
+  const bin=atob(b64); const bytes=new Uint8Array(bin.length);
+  for(let i=0;i<bin.length;i++) bytes[i]=bin.charCodeAt(i);
+  return new TextDecoder().decode(bytes);
+}
+let shareCandidates=[]; // {item, sel}
+function shareItemFromLocProc(loc,p){
+  const pr=getProg(loc,p.id);
+  return {
+    lid:loc.id, ln:loc.name,
+    fl: loc.kind==="common" ? ("共用"+(loc.floor?" "+loc.floor:"")) : (loc.floor||"階未設定"),
+    kind:loc.kind||"unit",
+    pid:p.id, pn:p.name, st:pr.status,
+    rem:(pr.remaining||[]).map(it=>({t:it.text,d:!!it.done})),
+    done:false
+  };
+}
+/* 部屋ごとの付帯情報を共有用に取り出す（写真は枚数だけ＝ダミー）。
+   本体データ構造には触れない。情報が無ければ null を返す。 */
+function shareRoomInfo(loc){
+  if(!loc) return null;
+  const info={};
+  const om=(loc.optionMemo||"").trim();
+  if(om) info.om=om;
+  const ns=notesFor(loc).map(n=>{
+    const p=n.processId?findProcAny(n.processId):null;
+    return { x:n.text, p:p?p.name:"" };
+  });
+  if(ns.length) info.notes=ns;
+  const pc=(loc.photos||[]).length;
+  if(pc) info.pc=pc;
+  return (info.om||info.notes||info.pc)?info:null;
+}
+function collectShareCandidates(pid, ids){
+  const out=[];
+  db.locations.forEach(loc=>{
+    if(ids && ids.length && !ids.includes(loc.id)) return; // 部屋未選択なら全部屋
+    procListFor(loc).forEach(p=>{
+      if(pid && pid!=="__all__" && p.id!==pid) return;
+      if(getProg(loc,p.id).status!=="done") out.push({item:shareItemFromLocProc(loc,p),sel:true});
+    });
+  });
+  return out;
+}
+function refreshShareCode(){
+  const sel=shareCandidates.filter(c=>c.sel).map(c=>c.item);
+  const rooms={}, seen=new Set();
+  sel.forEach(it=>{
+    if(seen.has(it.lid)) return; seen.add(it.lid);
+    const info=shareRoomInfo(db.locations.find(l=>l.id===it.lid));
+    if(info) rooms[it.lid]=info;
+  });
+  const data={ t:"list", site:db.site.name||"現場", at:Date.now(), items:sel, rooms };
+  el("shareCode").value = sel.length ? (SHARE_TAG+":"+b64encodeUtf8(JSON.stringify(data))) : "";
+  el("shareCandInfo").textContent = `選択 ${sel.length} / 未完了 ${shareCandidates.length}件`;
+}
+function renderShareCandidates(){
+  const box=el("shareCandList");
+  if(shareCandidates.length===0){
+    box.innerHTML=`<div class="empty">条件に合う未完了がありません。</div>`;
+    refreshShareCode(); return;
+  }
+  const groups={}, order=[];
+  shareCandidates.forEach((c,ix)=>{ const f=c.item.fl||"その他"; if(!groups[f]){groups[f]=[];order.push(f);} groups[f].push({c,ix}); });
+  let html="";
+  order.forEach(f=>{
+    html+=`<div class="floor-head" style="margin:10px 4px 6px">${escapeHtml(f)}</div>`;
+    const byRoom={}, ro=[];
+    groups[f].forEach(o=>{ const k=o.c.item.lid; if(!byRoom[k]){byRoom[k]=[];ro.push(k);} byRoom[k].push(o); });
+    ro.forEach(rk=>{
+      html+=`<div style="font-weight:700;font-size:13px;margin:6px 4px 4px">${escapeHtml(byRoom[rk][0].c.item.ln)}</div>`;
+      byRoom[rk].forEach(({c,ix})=>{
+        html+=`<label class="tgt-room" style="padding:8px"><input type="checkbox" class="shc-cb" data-ix="${ix}" ${c.sel?"checked":""}> ${escapeHtml(c.item.pn)}</label>`;
+      });
+    });
+  });
+  box.innerHTML=html;
+  box.querySelectorAll(".shc-cb").forEach(cb=>cb.addEventListener("change",()=>{
+    const ix=parseInt(cb.dataset.ix,10); if(shareCandidates[ix]) shareCandidates[ix].sel=cb.checked; refreshShareCode();
+  }));
+  refreshShareCode();
+}
+function decodeShareCode(raw){
+  let s=(raw||"").trim();
+  const idx=s.indexOf(SHARE_TAG+":");
+  if(idx>=0) s=s.slice(idx+SHARE_TAG.length+1);
+  s=s.replace(/\s+/g,""); // メールで入る改行・空白を除去
+  const obj=JSON.parse(b64decodeUtf8(s));
+  if(!obj||!Array.isArray(obj.items)) throw new Error("bad format");
+  return obj;
+}
+function loadShareList(){
+  try{ const raw=localStorage.getItem(SHARE_KEY); if(raw) return JSON.parse(raw); }catch(e){}
+  return null;
+}
+function saveShareList(obj){
+  try{ localStorage.setItem(SHARE_KEY,JSON.stringify(obj)); }catch(e){ toast("保存できませんでした"); }
+}
+function openShareMake(){
+  const unitOpts=procList().map(p=>`<option value="${p.id}">${escapeHtml(p.name)}</option>`).join("");
+  const commonOpts=commonProcList().map(p=>`<option value="${p.id}">${escapeHtml(p.name)}</option>`).join("");
+  let h=`<option value="__all__">（全工程）</option>`;
+  if(unitOpts) h+=`<optgroup label="住戸用の工程">${unitOpts}</optgroup>`;
+  if(commonOpts) h+=`<optgroup label="共用部用の工程">${commonOpts}</optgroup>`;
+  el("shareProc").innerHTML=h;
+  renderTargets(el("shareTargets"), null);
+  shareCandidates=[];
+  el("shareCandWrap").style.display="none";
+  el("shareCode").value="";
+  el("shareMakeModal").classList.add("active");
+}
+/* 部屋ごとの付帯情報を作業リストに表示する（情報が無ければ空文字） */
+function renderShareRoomInfo(ri){
+  if(!ri) return "";
+  let h="";
+  if(ri.notes&&ri.notes.length){
+    h+=`<div class="sh-info sh-note"><div class="sh-info-h">⚠️ 注意点</div>`;
+    ri.notes.forEach(n=>{
+      const tag=n.p?`<span class="note-tag">${escapeHtml(n.p)}</span> `:"";
+      h+=`<div class="sh-info-row">${tag}${escapeHtml(n.x)}</div>`;
+    });
+    h+=`</div>`;
+  }
+  if(ri.om){
+    h+=`<div class="sh-info sh-opt"><div class="sh-info-h">🔧 オプション変更</div><div class="sh-info-row">${escapeHtml(ri.om)}</div></div>`;
+  }
+  if(ri.pc){
+    h+=`<div class="sh-info sh-photo">📷 参考写真 ${ri.pc}枚（受け渡しは準備中）</div>`;
+  }
+  return h;
+}
+function renderShareList(){
+  const v=el("viewShare");
+  const obj=loadShareList();
+  const worker=isWorker();
+  let html=`<div class="detail-title-row"><div class="detail-title">${worker?"作業員モード":"今日の作業（取り込み）"}</div></div>`;
+  if(worker){
+    html+=`<button class="btn btn-soft" id="shareWorkerImport" style="width:100%;margin-bottom:12px">📥 作業リストを取り込む</button>`;
+  }
+  if(!obj||!Array.isArray(obj.items)||obj.items.length===0){
+    html+=`<div class="detail-sub">取り込んだ作業リストがありません。</div>
+      <div class="empty" style="margin-top:30px">${worker?"上の":"一覧の"}「📥 作業リストを取り込む」から、受け取ったコードを貼り付けてください。</div>`;
+    if(worker) html+=workerSwitchHtml();
+    v.innerHTML=html; bindWorkerShareControls(); return;
+  }
+  const total=obj.items.length, done=obj.items.filter(it=>it.done).length;
+  const w=new Date(obj.at||Date.now());
+  const wt=`${w.getFullYear()}/${w.getMonth()+1}/${w.getDate()} ${String(w.getHours()).padStart(2,"0")}:${String(w.getMinutes()).padStart(2,"0")}`;
+  html+=`<div class="detail-sub">${escapeHtml(obj.site||"現場")}　取り込み：${wt}</div>`;
+  html+=`<div class="preview">完了 ${done} / ${total}</div>`;
+  html+=`<div class="preview" style="background:#fff7e6;color:#92500a">※これは試作です。チェックしても本体アプリの進捗には反映されません。</div>`;
+  const rooms=obj.rooms||{};
+  const groups={}, order=[];
+  obj.items.forEach((it,ix)=>{ const f=it.fl||"その他"; if(!groups[f]){groups[f]=[];order.push(f);} groups[f].push({it,ix}); });
+  order.forEach(f=>{
+    html+=`<div class="floor-head">${escapeHtml(f)}</div>`;
+    const byRoom={}, ro=[];
+    groups[f].forEach(o=>{ const k=o.it.lid; if(!byRoom[k]){byRoom[k]=[];ro.push(k);} byRoom[k].push(o); });
+    ro.forEach(rk=>{
+      const roomName=byRoom[rk][0].it.ln;
+      html+=`<div class="card"><div style="padding:12px">`;
+      html+=`<div style="font-weight:700;margin-bottom:8px">${escapeHtml(roomName)}</div>`;
+      html+=renderShareRoomInfo(rooms[rk]);
+      byRoom[rk].forEach(({it,ix})=>{
+        html+=`<label class="rem-item ${it.done?"done":""}" style="border:1px solid var(--line);border-radius:9px;padding:10px;margin-bottom:6px">
+          <input type="checkbox" class="sh-cb" data-ix="${ix}" ${it.done?"checked":""}><span>${escapeHtml(it.pn)}</span></label>`;
+        if(it.rem&&it.rem.length){
+          html+=`<div style="margin:0 0 8px 26px">`;
+          it.rem.forEach((r,rix)=>{
+            html+=`<label class="rem-item ${r.d?"done":""}" style="padding:6px 2px"><input type="checkbox" class="sh-rcb" data-ix="${ix}" data-rix="${rix}" ${r.d?"checked":""}><span>${escapeHtml(r.t)}</span></label>`;
+          });
+          html+=`</div>`;
+        }
+      });
+      html+=`</div></div>`;
+    });
+  });
+  html+=`<button class="btn btn-primary" id="shareDoneBtn" style="margin-top:14px">📤 完了を職長に返す</button>`;
+  html+=`<button class="btn btn-soft" id="sharePhotoReturnBtn" style="margin-top:8px">📷 写真を返す（準備中）</button>`;
+  html+=`<button class="btn-danger-text" id="shareClearBtn" style="margin-top:8px">この取り込みデータを削除</button>`;
+  if(worker) html+=workerSwitchHtml();
+  v.innerHTML=html;
+  const dbn=el("shareDoneBtn");
+  if(dbn) dbn.addEventListener("click",openShareDone);
+  const pbn=el("sharePhotoReturnBtn");
+  if(pbn) pbn.addEventListener("click",()=>toast("写真の受け渡しはフェーズ2（Firebase）で対応予定です"));
+  v.querySelectorAll(".sh-cb").forEach(cb=>cb.addEventListener("change",()=>{
+    const o=loadShareList(); const ix=parseInt(cb.dataset.ix,10);
+    if(o&&o.items[ix]){ o.items[ix].done=cb.checked; saveShareList(o); renderShareList(); }
+  }));
+  v.querySelectorAll(".sh-rcb").forEach(cb=>cb.addEventListener("change",()=>{
+    const o=loadShareList(); const ix=parseInt(cb.dataset.ix,10), rix=parseInt(cb.dataset.rix,10);
+    if(o&&o.items[ix]&&o.items[ix].rem[rix]){ o.items[ix].rem[rix].d=cb.checked; saveShareList(o); }
+    cb.closest(".rem-item").classList.toggle("done",cb.checked);
+  }));
+  const clr=el("shareClearBtn");
+  if(clr) clr.addEventListener("click",()=>{
+    uiConfirm("取り込んだ作業リストを削除しますか？（本体には影響しません）").then(ok=>{
+      if(ok){ try{ localStorage.removeItem(SHARE_KEY); }catch(e){} renderShareList(); }
+    });
+  });
+  bindWorkerShareControls();
+}
+function goShareList(){ renderShareList(); showView("share"); }
+
+/* =========================================================
+   端末の役割（職長／作業員モード）
+   - 役割は別キー(genba_role_v1)に保存。本体データには触れない
+   - 作業員モードは「取り込む／受け取ったリスト／完了を返す」だけのシンプル画面
+   ========================================================= */
+function getRole(){ try{ return localStorage.getItem(ROLE_KEY)==="worker"?"worker":"foreman"; }catch(e){ return "foreman"; } }
+function setRole(r){ try{ localStorage.setItem(ROLE_KEY, r==="worker"?"worker":"foreman"); }catch(e){} }
+function isWorker(){ return getRole()==="worker"; }
+
+function workerSwitchHtml(){
+  return `<div style="text-align:center;margin-top:24px">
+    <button id="toForemanBtn" style="background:none;border:none;color:#8a8a8a;font-size:12px;text-decoration:underline;padding:8px">職長モードに切り替える</button>
+  </div>`;
+}
+function bindWorkerShareControls(){
+  const imp=el("shareWorkerImport");
+  if(imp) imp.addEventListener("click",()=>{ el("shareImportText").value=""; el("shareImportModal").classList.add("active"); });
+  const tf=el("toForemanBtn");
+  if(tf) tf.addEventListener("click",async ()=>{
+    const ok=await uiConfirm("職長モードに切り替えますか？\nこの端末を職長用に戻します。",{okText:"職長モードにする",okStyle:"primary"});
+    if(!ok) return;
+    setRole("foreman"); applyMode(); toast("職長モードに切り替えました");
+  });
+}
+/* 役割に応じて画面を切り替える（起動時・切替時に呼ぶ） */
+function applyMode(){
+  const w=isWorker();
+  document.body.classList.toggle("worker-mode", w);
+  if(w){ renderShareList(); showView("share"); }
+  else { renderList(); showView("list"); }
+}
+
+/* --- 復路（作業員→職長）：完了報告の作成・確認・反映 --- */
+function makeDoneCode(){
+  const o=loadShareList();
+  if(!o||!Array.isArray(o.items)||o.items.length===0) return null;
+  const items=o.items.map(it=>({
+    lid:it.lid, ln:it.ln, fl:it.fl, pid:it.pid, pn:it.pn,
+    done:!!it.done, rem:(it.rem||[]).map(r=>({t:r.t,d:!!r.d}))
+  }));
+  return { t:"done", site:o.site||"現場", at:Date.now(), items };
+}
+function openShareDone(){
+  const code=makeDoneCode();
+  if(!code){ toast("返す作業がありません"); return; }
+  const doneN=code.items.filter(it=>it.done).length;
+  el("shareDoneCode").value=SHARE_TAG+":"+b64encodeUtf8(JSON.stringify(code));
+  el("shareDoneInfo").textContent=`完了 ${doneN}件を含む報告コードです。コピーまたは共有で職長に送ってください。`;
+  el("shareDoneModal").classList.add("active");
+}
+let doneReviewData=null;
+function openDoneReview(obj){ doneReviewData=obj; renderDoneReview(); showView("doneReview"); }
+function renderDoneReview(){
+  const v=el("viewDoneReview");
+  const obj=doneReviewData;
+  let html=`<div class="detail-title-row"><div class="detail-title">完了報告の反映</div></div>`;
+  if(!obj||!Array.isArray(obj.items)){ html+=`<div class="empty" style="margin-top:30px">データがありません。</div>`; v.innerHTML=html; return; }
+  let willDone=0, skipped=0;
+  const rows=obj.items.map(it=>{
+    const loc=db.locations.find(l=>l.id===it.lid);
+    const p=loc?procListFor(loc).find(pp=>pp.id===it.pid):null;
+    const found=!!(loc&&p);
+    const apply=found && it.done && getProg(loc,it.pid).status!=="done";
+    if(!found) skipped++; else if(it.done) willDone++;
+    return {it,loc,p,found,apply};
+  });
+  const w=new Date(obj.at||Date.now());
+  const wt=`${w.getFullYear()}/${w.getMonth()+1}/${w.getDate()} ${String(w.getHours()).padStart(2,"0")}:${String(w.getMinutes()).padStart(2,"0")}`;
+  html+=`<div class="detail-sub">${escapeHtml(obj.site||"現場")}　受信：${wt}</div>`;
+  html+=`<div class="preview">完了にする工程 ${willDone}件　／　対象外 ${skipped}件</div>`;
+  const groups={}, order=[];
+  rows.forEach(r=>{ const f=r.it.fl||"その他"; if(!groups[f]){groups[f]=[];order.push(f);} groups[f].push(r); });
+  order.forEach(f=>{
+    html+=`<div class="floor-head">${escapeHtml(f)}</div>`;
+    const byRoom={}, ro=[];
+    groups[f].forEach(r=>{ const k=r.it.lid; if(!byRoom[k]){byRoom[k]=[];ro.push(k);} byRoom[k].push(r); });
+    ro.forEach(rk=>{
+      html+=`<div class="card"><div style="padding:12px">`;
+      html+=`<div style="font-weight:700;margin-bottom:8px">${escapeHtml(byRoom[rk][0].it.ln)}</div>`;
+      byRoom[rk].forEach(r=>{
+        let tag;
+        if(!r.found) tag=`<span class="due-badge b-todo">対象外</span>`;
+        else if(r.it.done && r.apply) tag=`<span class="due-badge b-done">完了にする</span>`;
+        else if(r.it.done && !r.apply) tag=`<span class="due-badge b-done">既に完了</span>`;
+        else tag=`<span class="due-badge b-doing">未完了のまま</span>`;
+        html+=`<div style="display:flex;align-items:center;gap:8px;padding:4px 0"><span style="flex:1">${escapeHtml(r.it.pn)}</span>${tag}</div>`;
+      });
+      html+=`</div></div>`;
+    });
+  });
+  html+=`<button class="btn btn-primary" id="doneApplyBtn" style="margin-top:14px">本体に反映する（${willDone}件を完了）</button>`;
+  html+=`<button class="btn btn-soft" id="doneCancelBtn" style="margin-top:8px">やめる</button>`;
+  v.innerHTML=html;
+  el("doneApplyBtn").addEventListener("click",()=>{
+    uiConfirm(`${willDone}件を完了にして本体に反映します。よろしいですか？`,{okText:"反映する",okStyle:"primary"}).then(ok=>{ if(ok) applyDoneReview(obj); });
+  });
+  el("doneCancelBtn").addEventListener("click",()=>{ showView("list"); renderList(); });
+}
+function applyDoneReview(obj){
+  let appliedDone=0, skipped=0;
+  obj.items.forEach(it=>{
+    const loc=db.locations.find(l=>l.id===it.lid);
+    const p=loc?procListFor(loc).find(pp=>pp.id===it.pid):null;
+    if(!loc||!p){ skipped++; return; }
+    let touched=false;
+    if(Array.isArray(it.rem)&&it.rem.length){
+      const cur=(getProg(loc,p.id).remaining||[]).slice();
+      let changed=false;
+      it.rem.forEach((r,ix)=>{ if(cur[ix]&&cur[ix].text===r.t&&cur[ix].done!==!!r.d){ cur[ix]={text:cur[ix].text,done:!!r.d}; changed=true; } });
+      if(changed){ setProg(loc,p.id,{remaining:cur}); touched=true; }
+    }
+    if(it.done && getProg(loc,p.id).status!=="done"){ setProg(loc,p.id,{status:"done"}); appliedDone++; touched=true; }
+    if(touched) loc.updatedAt=Date.now();
+  });
+  save();
+  showView("list"); renderList();
+  toast(`${appliedDone}件を完了に反映しました${skipped?`（対象外 ${skipped}件）`:""}`);
+}
+
+el("shareMakeBtn").addEventListener("click",openShareMake);
+el("shareImportBtn").addEventListener("click",()=>{ el("shareImportText").value=""; el("shareImportModal").classList.add("active"); });
+el("drawerShareMake").addEventListener("click",()=>{ closeDrawer(); openShareMake(); });
+el("drawerShareImport").addEventListener("click",()=>{ closeDrawer(); el("shareImportText").value=""; el("shareImportModal").classList.add("active"); });
+el("shareFilterBtn").addEventListener("click",()=>{
+  const pid=el("shareProc").value;
+  const ids=getSelectedTargets(el("shareTargets"), null);
+  shareCandidates=collectShareCandidates(pid, ids);
+  el("shareCandWrap").style.display="";
+  renderShareCandidates();
+});
+el("shareSelAll").addEventListener("click",()=>{ shareCandidates.forEach(c=>c.sel=true); renderShareCandidates(); });
+el("shareSelNone").addEventListener("click",()=>{ shareCandidates.forEach(c=>c.sel=false); renderShareCandidates(); });
+el("shareMakeClose").addEventListener("click",()=>el("shareMakeModal").classList.remove("active"));
+el("shareMakeModal").addEventListener("click",e=>{ if(e.target.id==="shareMakeModal") el("shareMakeModal").classList.remove("active"); });
+el("shareCopyBtn").addEventListener("click",async ()=>{
+  const t=el("shareCode").value;
+  if(!t){ toast("送る作業を1件以上選んでください"); return; }
+  try{
+    if(navigator.clipboard&&navigator.clipboard.writeText) await navigator.clipboard.writeText(t);
+    else { el("shareCode").focus(); el("shareCode").select(); document.execCommand("copy"); }
+    toast("コピーしました");
+  }catch(e){
+    try{ el("shareCode").focus(); el("shareCode").select(); document.execCommand("copy"); toast("コピーしました"); }
+    catch(_){ toast("コピーできません。長押しでコピーしてください"); }
+  }
+});
+el("shareShareBtn").addEventListener("click",async ()=>{
+  const t=el("shareCode").value;
+  if(!t){ toast("送る作業を1件以上選んでください"); return; }
+  if(navigator.share){ try{ await navigator.share({title:"作業リスト",text:t}); }catch(e){} }
+  else toast("この端末では共有が使えません。コピーして送ってください");
+});
+el("shareImportCancel").addEventListener("click",()=>el("shareImportModal").classList.remove("active"));
+el("shareImportModal").addEventListener("click",e=>{ if(e.target.id==="shareImportModal") el("shareImportModal").classList.remove("active"); });
+el("shareImportDo").addEventListener("click",()=>{
+  let obj;
+  try{ obj=decodeShareCode(el("shareImportText").value); }
+  catch(e){ toast("コードを読み取れませんでした。全部貼り付けたか確認してください"); return; }
+  el("shareImportModal").classList.remove("active");
+  el("shareImportText").value="";
+  if(obj.t==="done"){
+    openDoneReview(obj);
+  }else{
+    saveShareList(obj);
+    goShareList();
+    toast(`作業 ${obj.items.length}件を取り込みました`);
+  }
+});
+el("shareDoneClose").addEventListener("click",()=>el("shareDoneModal").classList.remove("active"));
+el("shareDoneModal").addEventListener("click",e=>{ if(e.target.id==="shareDoneModal") el("shareDoneModal").classList.remove("active"); });
+el("shareDoneCopy").addEventListener("click",async ()=>{
+  const t=el("shareDoneCode").value;
+  if(!t){ return; }
+  try{
+    if(navigator.clipboard&&navigator.clipboard.writeText) await navigator.clipboard.writeText(t);
+    else { el("shareDoneCode").focus(); el("shareDoneCode").select(); document.execCommand("copy"); }
+    toast("コピーしました");
+  }catch(e){
+    try{ el("shareDoneCode").focus(); el("shareDoneCode").select(); document.execCommand("copy"); toast("コピーしました"); }
+    catch(_){ toast("コピーできません。長押しでコピーしてください"); }
+  }
+});
+el("shareDoneShare").addEventListener("click",async ()=>{
+  const t=el("shareDoneCode").value;
+  if(!t){ return; }
+  if(navigator.share){ try{ await navigator.share({title:"完了報告",text:t}); }catch(e){} }
+  else toast("この端末では共有が使えません。コピーして送ってください");
+});
+
+/* 起動 */
+load(); applyMode();
+</script>
+
+
+</body></html>
