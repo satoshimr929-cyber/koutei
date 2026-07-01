@@ -3075,6 +3075,15 @@ function renderDoneReview(){
         else if(r.it.done && !r.apply) tag=`<span class="due-badge b-done">既に完了</span>`;
         else tag=`<span class="due-badge b-doing">未完了のまま</span>`;
         html+=`<div style="display:flex;align-items:center;gap:8px;padding:4px 0"><span style="flex:1">${escapeHtml(r.it.pn)}</span>${tag}</div>`;
+        if(r.it.rem && r.it.rem.length){
+          html+=`<div style="margin:0 0 8px 4px;border-left:2px solid var(--line);padding-left:10px">`;
+          r.it.rem.forEach(rm=>{
+            const mark=rm.d?`<span style="color:#1a9c4a;font-weight:700">✓</span>`:`<span style="color:#c7c7c7">○</span>`;
+            const txtStyle=rm.d?"text-decoration:line-through;color:var(--ink-soft);opacity:.6":"color:var(--ink)";
+            html+=`<div style="display:flex;align-items:center;gap:7px;padding:3px 0;font-size:13px"><span style="flex:0 0 auto">${mark}</span><span style="flex:1;${txtStyle}">${escapeHtml(rm.t)}</span></div>`;
+          });
+          html+=`</div>`;
+        }
       });
       html+=`</div></div>`;
     });
