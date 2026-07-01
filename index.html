@@ -525,6 +525,9 @@
 
   <!-- 完了報告の反映（試作） -->
   <section class="view" id="viewDoneReview"></section>
+
+  <!-- 完了報告の一覧（クラウド） -->
+  <section class="view" id="viewReportList"></section>
 </main>
 
 <!-- 左ドロワー（メニュー） -->
@@ -539,9 +542,9 @@
     <span class="di-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"><path d="M12 15V4"/><path d="m8 8 4-4 4 4"/><path d="M5 14v5a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-5"/></svg></span>
     <span class="di-tx">作業リストを作る<span class="di-sub">作業員に渡すコードを発行</span></span>
   </button>
-  <button type="button" class="drawer-item" id="drawerShareImport">
-    <span class="di-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"><path d="M12 4v11"/><path d="m8 11 4 4 4-4"/><path d="M5 14v5a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-5"/></svg></span>
-    <span class="di-tx">作業リストを取り込む<span class="di-sub">受け取ったコードを貼り付け</span></span>
+  <button type="button" class="drawer-item" id="drawerReportList">
+    <span class="di-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 3v2h6V3"/><path d="m9 13 2 2 4-4"/></svg></span>
+    <span class="di-tx">完了報告を確認<span class="di-sub">作業員からの報告をクラウドで確認</span></span>
   </button>
   <div class="drawer-sec">クラウド</div>
   <button type="button" class="drawer-item" id="drawerCloudSync">
@@ -685,19 +688,12 @@
   </div>
 </div>
 
-<!-- 完了を職長に返すモーダル（試作・作業員側） -->
+<!-- 完了を職長に送るモーダル（作業員側） -->
 <div class="modal" id="shareDoneModal">
   <div class="sheet">
-    <h3>完了を職長に返す</h3>
+    <h3>完了を職長に送る</h3>
     <div class="preview" id="shareDoneInfo"></div>
-    <div class="field">
-      <label>この完了コードを職長に送ります（コピー／共有）</label>
-      <textarea id="shareDoneCode" readonly="" style="min-height:120px;font-family:monospace;font-size:12px;word-break:break-all"></textarea>
-    </div>
-    <div class="sheet-actions">
-      <button class="btn btn-soft" id="shareDoneCopy">コピー</button>
-      <button class="btn btn-primary" id="shareDoneShare">共有</button>
-    </div>
+    <button class="btn btn-primary" id="shareDoneSendBtn" style="margin-top:6px">📤 職長に送信する</button>
     <button class="btn btn-soft" id="shareDoneClose" style="margin-top:10px">閉じる</button>
   </div>
 </div>
@@ -2562,6 +2558,7 @@ function showView(name){
   el("viewByproc").classList.toggle("active",name==="byproc");
   el("viewShare").classList.toggle("active",name==="share");
   el("viewDoneReview").classList.toggle("active",name==="doneReview");
+  el("viewReportList").classList.toggle("active",name==="reportList");
   const navMap={list:"navList",byproc:"navByproc",due:"navDue"};
   const onTab=Object.prototype.hasOwnProperty.call(navMap,name);
   el("backBtn").style.display=onTab?"none":"flex";
@@ -2907,6 +2904,56 @@ function renderShareList(){
 }
 function goShareList(){ renderShareList(); showView("share"); }
 
+/* --- 完了報告の一覧（クラウド） --- */
+async function openReportList(){
+  showView("reportList");
+  renderReportListLoading();
+  if(!window.__fbListReports){ renderReportListError("クラウド機能が使えません"); return; }
+  try{
+    const list=await window.__fbListReports();
+    list.sort((a,b)=>(b.at||0)-(a.at||0));
+    renderReportList(list);
+  }catch(e){
+    renderReportListError("取得に失敗しました。通信状態をご確認ください");
+  }
+}
+function renderReportListLoading(){
+  el("viewReportList").innerHTML=`<div class="detail-title-row"><div class="detail-title">完了報告を確認</div></div>
+    <div class="empty" style="margin-top:30px">読み込み中…</div>`;
+}
+function renderReportListError(msg){
+  el("viewReportList").innerHTML=`<div class="detail-title-row"><div class="detail-title">完了報告を確認</div></div>
+    <div class="empty" style="margin-top:30px">${escapeHtml(msg)}</div>
+    <button class="btn btn-soft" id="reportListRetry" style="margin-top:14px">もう一度読み込む</button>`;
+  const b=el("reportListRetry"); if(b) b.addEventListener("click",openReportList);
+}
+function renderReportList(list){
+  let html=`<div class="detail-title-row"><div class="detail-title">完了報告を確認</div></div>`;
+  if(!list.length){
+    html+=`<div class="empty" style="margin-top:30px">届いている報告はありません。</div>`;
+    el("viewReportList").innerHTML=html;
+    return;
+  }
+  html+=`<div class="detail-sub">届いている報告 ${list.length}件（タップして確認）</div>`;
+  list.forEach(rep=>{
+    const items=Array.isArray(rep.items)?rep.items:[];
+    const doneN=items.filter(it=>it.done).length;
+    const w=new Date(rep.at||Date.now());
+    const wt=`${w.getFullYear()}/${w.getMonth()+1}/${w.getDate()} ${String(w.getHours()).padStart(2,"0")}:${String(w.getMinutes()).padStart(2,"0")}`;
+    html+=`<div class="card report-card" data-id="${rep.id}" style="padding:14px;margin-bottom:10px;cursor:pointer">
+      <div style="font-weight:700">${escapeHtml(rep.site||"現場")}</div>
+      <div class="detail-sub" style="margin-top:4px">受信：${wt}　完了 ${doneN}/${items.length}</div>
+    </div>`;
+  });
+  el("viewReportList").innerHTML=html;
+  el("viewReportList").querySelectorAll(".report-card").forEach(card=>{
+    card.addEventListener("click",()=>{
+      const rep=list.find(r=>r.id===card.dataset.id);
+      if(rep) openDoneReview(rep, rep.id);
+    });
+  });
+}
+
 /* =========================================================
    端末の役割（職長／作業員モード）
    - 役割は別キー(genba_role_v1)に保存。本体データには触れない
@@ -2949,16 +2996,18 @@ function makeDoneCode(){
   }));
   return { t:"done", site:o.site||"現場", at:Date.now(), items };
 }
+let pendingDoneReport=null;
 function openShareDone(){
   const code=makeDoneCode();
   if(!code){ toast("返す作業がありません"); return; }
   const doneN=code.items.filter(it=>it.done).length;
-  el("shareDoneCode").value=SHARE_TAG+":"+b64encodeUtf8(JSON.stringify(code));
-  el("shareDoneInfo").textContent=`完了 ${doneN}件を含む報告コードです。コピーまたは共有で職長に送ってください。`;
+  pendingDoneReport=code;
+  el("shareDoneInfo").textContent=`完了 ${doneN}件を含む報告です。「職長に送信する」を押すと、クラウド経由で職長に届きます。`;
   el("shareDoneModal").classList.add("active");
 }
 let doneReviewData=null;
-function openDoneReview(obj){ doneReviewData=obj; renderDoneReview(); showView("doneReview"); }
+let doneReviewCloudId=null;
+function openDoneReview(obj, cloudId){ doneReviewData=obj; doneReviewCloudId=cloudId||null; renderDoneReview(); showView("doneReview"); }
 function renderDoneReview(){
   const v=el("viewDoneReview");
   const obj=doneReviewData;
@@ -3003,7 +3052,10 @@ function renderDoneReview(){
   el("doneApplyBtn").addEventListener("click",()=>{
     uiConfirm(`${willDone}件を完了にして本体に反映します。よろしいですか？`,{okText:"反映する",okStyle:"primary"}).then(ok=>{ if(ok) applyDoneReview(obj); });
   });
-  el("doneCancelBtn").addEventListener("click",()=>{ showView("list"); renderList(); });
+  el("doneCancelBtn").addEventListener("click",()=>{
+    if(doneReviewCloudId){ doneReviewCloudId=null; openReportList(); }
+    else { showView("list"); renderList(); }
+  });
 }
 function applyDoneReview(obj){
   let appliedDone=0, skipped=0;
@@ -3022,6 +3074,10 @@ function applyDoneReview(obj){
     if(touched) loc.updatedAt=Date.now();
   });
   save();
+  const cloudId=doneReviewCloudId; doneReviewCloudId=null;
+  if(cloudId && window.__fbDeleteReport){
+    window.__fbDeleteReport(cloudId).catch(()=>{ toast("反映しましたが、クラウド上の報告の削除に失敗しました"); });
+  }
   showView("list"); renderList();
   toast(`${appliedDone}件を完了に反映しました${skipped?`（対象外 ${skipped}件）`:""}`);
 }
@@ -3029,7 +3085,7 @@ function applyDoneReview(obj){
 el("shareMakeBtn").addEventListener("click",openShareMake);
 el("shareImportBtn").addEventListener("click",()=>{ el("shareImportText").value=""; el("shareImportModal").classList.add("active"); });
 el("drawerShareMake").addEventListener("click",()=>{ closeDrawer(); openShareMake(); });
-el("drawerShareImport").addEventListener("click",()=>{ closeDrawer(); el("shareImportText").value=""; el("shareImportModal").classList.add("active"); });
+el("drawerReportList").addEventListener("click",()=>{ closeDrawer(); openReportList(); });
 el("shareFilterBtn").addEventListener("click",()=>{
   const pid=el("shareProc").value;
   const ids=getSelectedTargets(el("shareTargets"), null);
@@ -3077,23 +3133,20 @@ el("shareImportDo").addEventListener("click",()=>{
 });
 el("shareDoneClose").addEventListener("click",()=>el("shareDoneModal").classList.remove("active"));
 el("shareDoneModal").addEventListener("click",e=>{ if(e.target.id==="shareDoneModal") el("shareDoneModal").classList.remove("active"); });
-el("shareDoneCopy").addEventListener("click",async ()=>{
-  const t=el("shareDoneCode").value;
-  if(!t){ return; }
+el("shareDoneSendBtn").addEventListener("click", async ()=>{
+  if(!pendingDoneReport) return;
+  if(!window.__fbSubmitReport){ toast("クラウド機能が使えません。通信環境をご確認ください"); return; }
+  const btn=el("shareDoneSendBtn");
+  btn.disabled=true; btn.textContent="送信中…";
   try{
-    if(navigator.clipboard&&navigator.clipboard.writeText) await navigator.clipboard.writeText(t);
-    else { el("shareDoneCode").focus(); el("shareDoneCode").select(); document.execCommand("copy"); }
-    toast("コピーしました");
+    await window.__fbSubmitReport(pendingDoneReport);
+    el("shareDoneModal").classList.remove("active");
+    toast("職長に送信しました");
   }catch(e){
-    try{ el("shareDoneCode").focus(); el("shareDoneCode").select(); document.execCommand("copy"); toast("コピーしました"); }
-    catch(_){ toast("コピーできません。長押しでコピーしてください"); }
+    toast("送信に失敗しました。通信状態をご確認のうえ、もう一度お試しください");
+  }finally{
+    btn.disabled=false; btn.textContent="📤 職長に送信する";
   }
-});
-el("shareDoneShare").addEventListener("click",async ()=>{
-  const t=el("shareDoneCode").value;
-  if(!t){ return; }
-  if(navigator.share){ try{ await navigator.share({title:"完了報告",text:t}); }catch(e){} }
-  else toast("この端末では共有が使えません。コピーして送ってください");
 });
 
 /* 起動 */
@@ -3103,7 +3156,7 @@ load(); applyMode();
 <!-- ===== Firebase 連携（ステップ2：保存・読み込みをクラウド化） ===== -->
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-app.js";
-  import { getFirestore, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-firestore.js";
+  import { getFirestore, doc, setDoc, getDoc, collection, addDoc, getDocs, deleteDoc } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-firestore.js";
 
   const firebaseConfig = {
     apiKey: "AIzaSyAtueupYX9AGEsHcSSy8gulMBJxhsvCU0c",
@@ -3117,6 +3170,7 @@ load(); applyMode();
   const fbApp = initializeApp(firebaseConfig);
   const fbDb = getFirestore(fbApp);
   const mainRef = doc(fbDb, "genba", "main");
+  const reportsCol = collection(fbDb, "reports");
 
   // 本体側（下の通常script）から呼び出せるように window に公開
   window.__fbPull = async function(){
@@ -3125,6 +3179,20 @@ load(); applyMode();
   };
   window.__fbPush = async function(dbObj){
     await setDoc(mainRef, { db: dbObj, updatedAt: Date.now() });
+  };
+
+  // 完了報告（作業員→職長）：reports コレクションに1件ずつ追加／一覧取得／反映後の削除
+  window.__fbSubmitReport = async function(reportObj){
+    await addDoc(reportsCol, reportObj);
+  };
+  window.__fbListReports = async function(){
+    const snap = await getDocs(reportsCol);
+    const out = [];
+    snap.forEach(d => out.push(Object.assign({ id: d.id }, d.data())));
+    return out;
+  };
+  window.__fbDeleteReport = async function(reportId){
+    await deleteDoc(doc(fbDb, "reports", reportId));
   };
 
   // 起動時：画面はまずローカルデータで即表示済み。ここでクラウドの最新を取得できたら上書きする
