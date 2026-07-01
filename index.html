@@ -543,6 +543,11 @@
     <span class="di-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"><path d="M12 4v11"/><path d="m8 11 4 4 4-4"/><path d="M5 14v5a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-5"/></svg></span>
     <span class="di-tx">作業リストを取り込む<span class="di-sub">受け取ったコードを貼り付け</span></span>
   </button>
+  <div class="drawer-sec">クラウド</div>
+  <button type="button" class="drawer-item" id="drawerCloudSync">
+    <span class="di-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 3v6h-6"/></svg></span>
+    <span class="di-tx">最新のデータを取得<span class="di-sub">他の端末での更新を反映</span></span>
+  </button>
   <div class="drawer-sec">設定</div>
   <button type="button" class="drawer-item" id="drawerProc">
     <span class="di-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"><path d="M9 6h11"/><path d="M9 12h11"/><path d="M9 18h11"/><path d="m4 6 1 1 2-2"/><path d="m4 12 1 1 2-2"/><path d="m4 18 1 1 2-2"/></svg></span>
@@ -739,6 +744,9 @@ let db = { site:{name:"新しい現場"}, locations:[], notes:[], processes:[], 
 
 function load(){
   try{ const raw=localStorage.getItem(STORE_KEY); if(raw) db=JSON.parse(raw); }catch(e){}
+  normalizeDb();
+}
+function normalizeDb(){
   if(!db.site) db.site={name:"新しい現場"};
   if(!Array.isArray(db.locations)) db.locations=[];
   if(!Array.isArray(db.notes)) db.notes=[];
@@ -773,8 +781,33 @@ function load(){
   });
 }
 function save(){
-  try{ localStorage.setItem(STORE_KEY,JSON.stringify(db)); return true; }
+  try{ localStorage.setItem(STORE_KEY,JSON.stringify(db)); }
   catch(e){ toast("保存できませんでした。写真が多すぎる可能性があります"); return false; }
+  cloudPush();
+  return true;
+}
+/* ===== クラウド同期（Firebase）：window.__fbPull / window.__fbPush はFirebase用scriptが用意 ===== */
+function cloudPush(){
+  if(!window.__fbPush) return; // クラウド機能が読み込めていない時は何もしない（ローカル保存は成功済み）
+  window.__fbPush(JSON.parse(JSON.stringify(db))).catch(()=>{
+    toast("クラウドへの保存に失敗しました（通信状態をご確認ください）");
+  });
+}
+// リモートのデータで画面ごと更新する（起動時の自動取得／手動取得の両方から呼ばれる）
+function applyRemoteDb(remote){
+  db = remote;
+  normalizeDb();
+  try{ localStorage.setItem(STORE_KEY,JSON.stringify(db)); }catch(e){}
+  if(typeof applyMode==="function") applyMode();
+}
+// ドロワーの「最新のデータを取得」から呼ばれる手動取得
+function cloudPullManual(){
+  if(!window.__fbPull){ toast("クラウド機能が使えません"); return; }
+  toast("最新データを取得中…");
+  window.__fbPull().then(remote=>{
+    if(remote){ applyRemoteDb(remote); toast("最新データを取得しました"); }
+    else{ toast("クラウドにまだデータがありません"); }
+  }).catch(()=>{ toast("取得に失敗しました。通信状態をご確認ください"); });
 }
 function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,7); }
 const el=(id)=>document.getElementById(id);
@@ -2560,6 +2593,7 @@ function closeDrawer(){ el("appDrawer").classList.remove("open"); el("drawerScri
 el("menuBtn").addEventListener("click",openDrawer);
 el("drawerScrim").addEventListener("click",closeDrawer);
 el("drawerProc").addEventListener("click",()=>{ closeDrawer(); goSetup("proc"); });
+el("drawerCloudSync").addEventListener("click",()=>{ closeDrawer(); cloudPullManual(); });
 el("drawerReg").addEventListener("click",()=>{ closeDrawer(); goSetup("reg"); });
 el("drawerBackup").addEventListener("click",()=>{ closeDrawer(); goSetup("backup"); });
 el("drawerWorker").addEventListener("click",async ()=>{
@@ -3066,7 +3100,7 @@ el("shareDoneShare").addEventListener("click",async ()=>{
 load(); applyMode();
 </script>
 
-<!-- ===== Firebase 接続テスト（ステップ1：見た目・動作には影響しません） ===== -->
+<!-- ===== Firebase 連携（ステップ2：保存・読み込みをクラウド化） ===== -->
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-app.js";
   import { getFirestore, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-firestore.js";
@@ -3082,20 +3116,26 @@ load(); applyMode();
 
   const fbApp = initializeApp(firebaseConfig);
   const fbDb = getFirestore(fbApp);
+  const mainRef = doc(fbDb, "genba", "main");
 
+  // 本体側（下の通常script）から呼び出せるように window に公開
+  window.__fbPull = async function(){
+    const snap = await getDoc(mainRef);
+    return snap.exists() ? (snap.data().db || null) : null;
+  };
+  window.__fbPush = async function(dbObj){
+    await setDoc(mainRef, { db: dbObj, updatedAt: Date.now() });
+  };
+
+  // 起動時：画面はまずローカルデータで即表示済み。ここでクラウドの最新を取得できたら上書きする
   (async () => {
     try{
-      const testRef = doc(fbDb, "connectionTest", "ping");
-      await setDoc(testRef, { checkedAt: Date.now() });
-      const snap = await getDoc(testRef);
-      if(snap.exists()){
-        window.toast ? toast("Firebase接続OK") : alert("Firebase接続OK");
-      }else{
-        window.toast ? toast("Firebase接続：書き込みは成功、読み取り失敗") : alert("Firebase接続：書き込みは成功、読み取り失敗");
+      const remote = await window.__fbPull();
+      if(remote && typeof window.applyRemoteDb === "function"){
+        window.applyRemoteDb(remote);
       }
     }catch(e){
-      const msg = "Firebase接続エラー: " + (e && e.message ? e.message : e);
-      window.toast ? toast(msg) : alert(msg);
+      if(typeof window.toast === "function") window.toast("オフラインのため手元のデータを表示中");
       console.error(e);
     }
   })();
