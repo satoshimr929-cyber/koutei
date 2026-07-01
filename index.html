@@ -2904,9 +2904,12 @@ function renderReportList(list){
     const doneN=items.filter(it=>it.done).length;
     const w=new Date(rep.at||Date.now());
     const wt=`${w.getFullYear()}/${w.getMonth()+1}/${w.getDate()} ${String(w.getHours()).padStart(2,"0")}:${String(w.getMinutes()).padStart(2,"0")}`;
-    html+=`<div class="card report-card" data-id="${rep.id}" style="padding:14px;margin-bottom:10px;cursor:pointer">
-      <div style="font-weight:700">${escapeHtml(rep.site||"現場")}</div>
-      <div class="detail-sub" style="margin-top:4px">受信：${wt}　完了 ${doneN}/${items.length}</div>
+    html+=`<div class="card" style="padding:14px;margin-bottom:10px">
+      <div class="report-card" data-id="${rep.id}" style="cursor:pointer">
+        <div style="font-weight:700">${escapeHtml(rep.site||"現場")}</div>
+        <div class="detail-sub" style="margin-top:4px">受信：${wt}　完了 ${doneN}/${items.length}</div>
+      </div>
+      <button class="btn-danger-text report-del-btn" data-id="${rep.id}" style="width:auto;padding:6px 0;margin-top:2px;text-align:left">この報告を削除</button>
     </div>`;
   });
   el("viewReportList").innerHTML=html;
@@ -2914,6 +2917,22 @@ function renderReportList(list){
     card.addEventListener("click",()=>{
       const rep=list.find(r=>r.id===card.dataset.id);
       if(rep) openDoneReview(rep, rep.id);
+    });
+  });
+  el("viewReportList").querySelectorAll(".report-del-btn").forEach(btn=>{
+    btn.addEventListener("click", async (e)=>{
+      e.stopPropagation();
+      const id=btn.dataset.id;
+      const ok=await uiConfirm("この完了報告を削除しますか？（本体には反映されません）",{okText:"削除する",okStyle:"danger"});
+      if(!ok) return;
+      if(!window.__fbDeleteReport){ toast("クラウド機能が使えません"); return; }
+      try{
+        await window.__fbDeleteReport(id);
+        toast("報告を削除しました");
+        openReportList();
+      }catch(e2){
+        toast("削除に失敗しました。通信状態をご確認ください");
+      }
     });
   });
 }
@@ -3098,6 +3117,7 @@ function renderDoneReview(){
   });
   html+=`<button class="btn btn-primary" id="doneApplyBtn" style="margin-top:14px">本体に反映する（${willDone}件を完了）</button>`;
   html+=`<button class="btn btn-soft" id="doneCancelBtn" style="margin-top:8px">やめる</button>`;
+  if(doneReviewCloudId) html+=`<button class="btn-danger-text" id="doneDeleteBtn" style="margin-top:4px">この完了報告を削除</button>`;
   v.innerHTML=html;
   v.querySelectorAll(".dr-apply-cb").forEach(cb=>cb.addEventListener("change",()=>{
     const ix=parseInt(cb.dataset.ix,10);
@@ -3110,6 +3130,21 @@ function renderDoneReview(){
   el("doneCancelBtn").addEventListener("click",()=>{
     if(doneReviewCloudId){ doneReviewCloudId=null; openReportList(); }
     else { showView("list"); renderList(); }
+  });
+  const delBtn=el("doneDeleteBtn");
+  if(delBtn) delBtn.addEventListener("click", async ()=>{
+    const ok=await uiConfirm("この完了報告を削除しますか？（本体には反映されません）",{okText:"削除する",okStyle:"danger"});
+    if(!ok) return;
+    if(!window.__fbDeleteReport){ toast("クラウド機能が使えません"); return; }
+    const id=doneReviewCloudId;
+    try{
+      await window.__fbDeleteReport(id);
+      doneReviewCloudId=null;
+      toast("報告を削除しました");
+      openReportList();
+    }catch(e){
+      toast("削除に失敗しました。通信状態をご確認ください");
+    }
   });
 }
 function applyDoneReview(obj){
