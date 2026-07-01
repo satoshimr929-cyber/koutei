@@ -3066,5 +3066,39 @@ el("shareDoneShare").addEventListener("click",async ()=>{
 load(); applyMode();
 </script>
 
+<!-- ===== Firebase 接続テスト（ステップ1：見た目・動作には影響しません） ===== -->
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-app.js";
+  import { getFirestore, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-firestore.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyAtueupYX9AGEsHcSSy8gulMBJxhsvCU0c",
+    authDomain: "genbakanri-d811d.firebaseapp.com",
+    projectId: "genbakanri-d811d",
+    storageBucket: "genbakanri-d811d.firebasestorage.app",
+    messagingSenderId: "529760966640",
+    appId: "1:529760966640:web:c4741dd61a8e8e1889af35"
+  };
+
+  const fbApp = initializeApp(firebaseConfig);
+  const fbDb = getFirestore(fbApp);
+
+  (async () => {
+    try{
+      const testRef = doc(fbDb, "connectionTest", "ping");
+      await setDoc(testRef, { checkedAt: Date.now() });
+      const snap = await getDoc(testRef);
+      if(snap.exists()){
+        window.toast ? toast("Firebase接続OK") : alert("Firebase接続OK");
+      }else{
+        window.toast ? toast("Firebase接続：書き込みは成功、読み取り失敗") : alert("Firebase接続：書き込みは成功、読み取り失敗");
+      }
+    }catch(e){
+      const msg = "Firebase接続エラー: " + (e && e.message ? e.message : e);
+      window.toast ? toast(msg) : alert(msg);
+      console.error(e);
+    }
+  })();
+</script>
 
 </body></html>
