@@ -277,6 +277,27 @@
   .auth-gate .ag-divider{display:flex;align-items:center;gap:10px;margin:16px 0;color:var(--ink-soft);font-size:12px}
   .auth-gate .ag-divider::before,.auth-gate .ag-divider::after{content:"";flex:1;height:1px;background:var(--line)}
   .btn-google{background:#fff;color:var(--ink);border:1.5px solid var(--line-strong)}
+
+  /* 現場選択・現場作成・招待（入口画面の追加スクリーン） */
+  .auth-gate .ag-site-list{display:flex;flex-direction:column;gap:10px;margin-bottom:18px;text-align:left}
+  .auth-gate .ag-site-item{display:block;width:100%;background:#fff;border:1.5px solid var(--line);
+    border-radius:14px;padding:14px 16px;text-align:left;cursor:pointer;transition:border-color .12s}
+  .auth-gate .ag-site-item:active{border-color:var(--accent);background:var(--accent-soft)}
+  .auth-gate .ag-site-item .si-name{font-size:16px;font-weight:700;color:var(--ink)}
+  .auth-gate .ag-site-item .si-code{font-size:12px;color:var(--ink-soft);margin-top:3px;letter-spacing:.08em}
+  .auth-gate .ag-note{font-size:12px;color:var(--ink-soft);margin-top:14px;text-align:left;line-height:1.6}
+  .ag-check{display:flex;align-items:flex-start;gap:9px;text-align:left;font-size:13px;color:var(--ink);
+    background:#f7f9fa;border:1px solid var(--line);border-radius:12px;padding:12px;margin:4px 0 16px;cursor:pointer}
+  .ag-check input{margin-top:2px;flex:0 0 auto}
+  .ag-check .agc-sub{display:block;font-size:11px;color:var(--ink-soft);margin-top:3px}
+  .invite-code{font-size:30px;font-weight:800;letter-spacing:.18em;color:var(--accent-press);
+    background:var(--accent-soft);border-radius:14px;padding:14px 10px;text-align:center;margin:10px 0 4px;
+    user-select:all;-webkit-user-select:all}
+  .invite-qr{display:flex;justify-content:center;margin:14px 0 6px}
+  .invite-qr svg{width:190px;height:190px;border:8px solid #fff;border-radius:10px;box-shadow:var(--shadow)}
+  .invite-url{font-size:12px;color:var(--ink-soft);word-break:break-all;background:#f7f9fa;
+    border:1px solid var(--line);border-radius:10px;padding:9px 10px;margin:8px 0;text-align:left}
+  .ag-loading-dot{font-size:14px;color:var(--ink-soft)}
   .sheet{background:#fff;width:100%;max-width:680px;border-radius:22px 22px 0 0;max-height:92vh;overflow-y:auto;
     padding:20px 16px calc(env(safe-area-inset-bottom) + 18px);box-shadow:0 -10px 40px rgba(15,23,32,.22);position:relative}
   .sheet::before{content:"";position:absolute;top:9px;left:50%;transform:translateX(-50%);width:38px;height:4px;border-radius:999px;background:#dbe1e9}
@@ -501,6 +522,11 @@
   .drawer-item .di-ic svg{width:24px;height:24px;display:block}
   .drawer-item .di-tx{min-width:0}
   .drawer-item .di-sub{display:block;font-size:12px;font-weight:400;color:var(--ink-soft);margin-top:2px}
+  /* 認証モード（AUTH_GATE_ENABLED=true）のときだけ出すメニュー／隠すメニュー */
+  .auth-only{display:none !important}
+  body.auth-mode .drawer-item.auth-only{display:flex !important}
+  body.auth-mode .drawer-sec.auth-only{display:block !important}
+  body.auth-mode #drawerWorker, body.auth-mode #drawerSecDevice{display:none !important}
 </style>
 </head>
 <body>
@@ -548,12 +574,67 @@
     <div class="ag-switch">すでにアカウントをお持ちの方は <button id="agGoToLogin">ログイン</button></div>
   </div>
 
-  <!-- ログイン完了（仮画面：次のステップで現場選択に置き換え） -->
-  <div class="ag-screen" id="agDone">
+  <!-- 起動時：ログイン状態の確認中 -->
+  <div class="ag-screen" id="agLoading">
+    <div class="ag-icon">🏗️</div>
+    <div class="ag-title">マンション工事 施工・工程管理</div>
+    <div class="ag-loading-dot">読み込み中…</div>
+  </div>
+
+  <!-- 職長：現場を選ぶ -->
+  <div class="ag-screen" id="agSites">
+    <button class="ag-back" id="agSitesBack" style="display:none">‹ アプリに戻る</button>
+    <div class="ag-title" style="margin-bottom:4px">現場を選ぶ</div>
+    <div class="ag-sub" id="agSitesUser"></div>
+    <div class="ag-err" id="agSitesErr"></div>
+    <div class="ag-site-list" id="agSitesList"></div>
+    <div class="ag-btns">
+      <button class="btn btn-primary" id="agSiteNewBtn">＋ 新しい現場を作る</button>
+      <button class="btn btn-soft" id="agSitesLogout">ログアウト</button>
+    </div>
+  </div>
+
+  <!-- 職長：新しい現場を作る -->
+  <div class="ag-screen" id="agSiteNew">
+    <button class="ag-back" id="agSiteNewBack">‹ 戻る</button>
+    <div class="ag-title" style="margin-bottom:20px">新しい現場を作る</div>
+    <div class="ag-err" id="agSiteNewErr"></div>
+    <div class="ag-form">
+      <div class="field"><label>現場名</label><input type="text" id="agSiteNewName" placeholder="例）氷川台マンション新築工事"></div>
+    </div>
+    <label class="ag-check" id="agSiteNewImportWrap" style="display:none">
+      <input type="checkbox" id="agSiteNewImport">
+      <span>これまでのクラウドデータを取り込む
+        <span class="agc-sub">今まで使っていた進捗データ（部屋・工程・注意点）をこの現場にコピーします。元のデータは消えません。</span>
+      </span>
+    </label>
+    <button class="btn btn-primary" id="agSiteNewSubmit">現場を作る</button>
+  </div>
+
+  <!-- 職長：現場を作成した直後（コード・QRの案内） -->
+  <div class="ag-screen" id="agSiteDone">
     <div class="ag-icon">✅</div>
-    <div class="ag-title">ログインできました</div>
-    <div class="ag-sub" id="agDoneMsg"></div>
-    <div class="ag-btns"><button class="btn btn-soft" id="agLogoutBtn">ログアウト</button></div>
+    <div class="ag-title">現場を作りました</div>
+    <div class="ag-sub" id="agSiteDoneName" style="margin-bottom:8px"></div>
+    <div id="agSiteDoneInvite" style="text-align:left"></div>
+    <div class="ag-btns" style="margin-top:16px">
+      <button class="btn btn-primary" id="agSiteDoneEnter">この現場をひらく</button>
+    </div>
+    <div class="ag-note">現場コードとQRは、あとからメニューの「現場コード・QR招待」でいつでも表示できます。</div>
+  </div>
+
+  <!-- 作業員：現場コードで参加 -->
+  <div class="ag-screen" id="agJoin">
+    <button class="ag-back" id="agJoinBack">‹ 戻る</button>
+    <div class="ag-title" style="margin-bottom:20px">作業員として現場に参加</div>
+    <div class="ag-err" id="agJoinErr"></div>
+    <div class="ag-form">
+      <div class="field"><label>現場コード（職長から教えてもらった6文字）</label>
+        <input type="text" id="agJoinCode" autocomplete="off" autocapitalize="characters" placeholder="例）K7X2PM" maxlength="6" style="letter-spacing:.15em;text-transform:uppercase"></div>
+      <div class="field"><label>お名前</label><input type="text" id="agJoinName" autocomplete="name" placeholder="例）山田 太郎"></div>
+    </div>
+    <button class="btn btn-primary" id="agJoinSubmit">参加する</button>
+    <div class="ag-note">QRコードから開いた場合は、現場コードが自動で入ります。</div>
   </div>
 
 </div>
@@ -632,6 +713,19 @@
     <span class="di-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 3v6h-6"/></svg></span>
     <span class="di-tx">最新のデータを取得<span class="di-sub">他の端末での更新を反映</span></span>
   </button>
+  <div class="drawer-sec auth-only" id="drawerSecSite">現場</div>
+  <button type="button" class="drawer-item auth-only" id="drawerInvite">
+    <span class="di-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3zM18 18h3v3h-3z"/></svg></span>
+    <span class="di-tx">現場コード・QR招待<span class="di-sub">作業員をこの現場に招待</span></span>
+  </button>
+  <button type="button" class="drawer-item auth-only" id="drawerSiteSwitch">
+    <span class="di-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"><path d="m16 3 4 4-4 4"/><path d="M20 7H4"/><path d="m8 21-4-4 4-4"/><path d="M4 17h16"/></svg></span>
+    <span class="di-tx">現場を切り替える<span class="di-sub">別の現場をひらく・新しく作る</span></span>
+  </button>
+  <button type="button" class="drawer-item auth-only" id="drawerLogout">
+    <span class="di-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/></svg></span>
+    <span class="di-tx">ログアウト<span class="di-sub">入口画面に戻る</span></span>
+  </button>
   <div class="drawer-sec">設定</div>
   <button type="button" class="drawer-item" id="drawerProc">
     <span class="di-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"><path d="M9 6h11"/><path d="M9 12h11"/><path d="M9 18h11"/><path d="m4 6 1 1 2-2"/><path d="m4 12 1 1 2-2"/><path d="m4 18 1 1 2-2"/></svg></span>
@@ -645,7 +739,7 @@
     <span class="di-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"><path d="M12 4v10"/><path d="m8 10 4 4 4-4"/><path d="M5 16v3a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-3"/></svg></span>
     <span class="di-tx">バックアップ・復元<span class="di-sub">データをファイルに保存／読み込み</span></span>
   </button>
-  <div class="drawer-sec">この端末</div>
+  <div class="drawer-sec" id="drawerSecDevice">この端末</div>
   <button type="button" class="drawer-item" id="drawerWorker">
     <span class="di-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg></span>
     <span class="di-tx">作業員モードにする<span class="di-sub">取り込み・完了返却だけの画面に</span></span>
@@ -667,6 +761,18 @@
     <span class="lb">期限間近</span>
   </button>
 </nav>
+
+<!-- 現場コード・QR招待モーダル（職長用） -->
+<div class="modal" id="inviteModal">
+  <div class="sheet">
+    <h3>現場コード・QR招待</h3>
+    <p class="hint" style="margin:0 0 6px">作業員にこのQRを読み取ってもらうか、現場コードを伝えてください。</p>
+    <div id="inviteBox"></div>
+    <div class="sheet-actions">
+      <button class="btn btn-soft" id="inviteClose">閉じる</button>
+    </div>
+  </div>
+</div>
 
 <!-- 注意点モーダル -->
 <div class="modal" id="noteModal">
@@ -764,6 +870,15 @@
 <input type="file" id="filePicker" accept="image/*" style="display:none">
 <input type="file" id="restorePicker" accept=".json,application/json" style="display:none">
 
+<!-- QRコード生成ライブラリ（読み込めない環境でも、コード・URLの手入力で参加できるようにしてある） -->
+<script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
+
+<script>
+// 認証入口画面のスイッチ。true=入口画面（ログイン／現場参加）を通ってからアプリが開く。
+// false に戻すと従来どおり入口なしでアプリが開く（緊急時の避難用）。
+window.AUTH_GATE_ENABLED = true;
+</script>
+
 <script>
 "use strict";
 /* =========================================================
@@ -775,6 +890,11 @@ const STORE_KEY = "genba_mansion_v1";
 const SHARE_KEY = "genba_share_test_v1";
 /* 端末の役割（職長／作業員）。本体データには触れない別キー */
 const ROLE_KEY = "genba_role_v1";
+/* 認証モードで「いまひらいている現場」を覚えるキー（{code, name}） */
+const SITE_KEY = "genba_site_v1";
+/* 作業員の名前（現場参加時に入力したもの） */
+const WORKER_NAME_KEY = "genba_worker_name_v1";
+const AUTH_GATE = window.AUTH_GATE_ENABLED === true;
 const DEFAULT_CATEGORIES = [{id:"kutai",name:"躯体工事"},{id:"naiso",name:"内装工事"}];
 const DEFAULT_PROCESSES = [
   {name:"壁BOX建込",cat:"kutai"},
@@ -2658,6 +2778,15 @@ el("drawerWorker").addEventListener("click",async ()=>{
   if(!ok) return;
   setRole("worker"); applyMode(); toast("作業員モードに切り替えました");
 });
+/* 認証モードのメニュー（現場コード・QR招待／現場切り替え／ログアウト） */
+el("drawerInvite").addEventListener("click",()=>{ closeDrawer(); openInviteModal(); });
+el("drawerSiteSwitch").addEventListener("click",()=>{ closeDrawer(); openSitesScreen(true); });
+el("drawerLogout").addEventListener("click",async ()=>{
+  closeDrawer();
+  const ok=await uiConfirm("ログアウトしますか？\nデータはクラウドに保存されているので、次回ログインすると続きから使えます。",{okText:"ログアウト",okStyle:"danger"});
+  if(!ok) return;
+  doLogout();
+});
 el("emptyCta").addEventListener("click",()=>goSetup("reg"));
 el("dueBtn").addEventListener("click",goDue);
 el("byprocBtn").addEventListener("click",goByproc);
@@ -2682,18 +2811,40 @@ let toastTimer;
 function toast(msg){ const t=el("toast"); t.textContent=msg; t.classList.add("show"); clearTimeout(toastTimer); toastTimer=setTimeout(()=>t.classList.remove("show"),1800); }
 window.toast = toast;
 
-/* 入口画面（職長ログイン／作業員参加） */
+/* =========================================================
+   入口画面（職長ログイン／現場選択・作成／作業員参加）
+   - 役割は認証から決まる：メール・Googleログイン＝職長、匿名ログイン＝作業員
+   - 決まった役割は従来のROLE_KEY(genba_role_v1)にも書き込み、既存の画面切替をそのまま使う
+   ========================================================= */
 function agShow(id){
   document.querySelectorAll(".auth-gate .ag-screen").forEach(s=>s.classList.remove("active"));
   el(id).classList.add("active");
 }
 function agClearErr(id){ const e=el(id); e.textContent=""; e.classList.remove("show"); }
 function agSetErr(id,msg){ const e=el(id); e.textContent=msg; e.classList.add("show"); }
+function gateShow(id){ el("authGate").classList.add("active"); agShow(id); }
+function gateHide(){ el("authGate").classList.remove("active"); }
+
+/* いまひらいている現場（認証モード） */
+function getSavedSite(){ try{ const raw=localStorage.getItem(SITE_KEY); return raw?JSON.parse(raw):null; }catch(e){ return null; } }
+function setSavedSite(o){ try{ localStorage.setItem(SITE_KEY, JSON.stringify(o)); }catch(e){} }
+function clearSavedSite(){ try{ localStorage.removeItem(SITE_KEY); }catch(e){} }
+function getWorkerName(){ try{ return localStorage.getItem(WORKER_NAME_KEY)||""; }catch(e){ return ""; } }
+function setWorkerName(n){ try{ localStorage.setItem(WORKER_NAME_KEY, n); }catch(e){} }
+
+let agBusy=false;      // ログイン・参加・現場作成の処理中は自動ルーティングを止める
+let agResolved=false;  // 起動時にログイン状態が一度でも確定したか
+let lastCreatedSite=null;
 
 el("agForemanBtn").addEventListener("click",()=>{ agClearErr("agLoginErr"); agShow("agLogin"); });
-el("agWorkerBtn").addEventListener("click",()=>toast("次のステップで実装します"));
+el("agWorkerBtn").addEventListener("click",()=>{
+  agClearErr("agJoinErr");
+  const n=getWorkerName(); if(n && !el("agJoinName").value) el("agJoinName").value=n;
+  agShow("agJoin");
+});
 el("agLoginBack").addEventListener("click",()=>agShow("agHome"));
 el("agRegisterBack").addEventListener("click",()=>agShow("agHome"));
+el("agJoinBack").addEventListener("click",()=>agShow("agHome"));
 el("agGoToRegister").addEventListener("click",()=>{ agClearErr("agRegisterErr"); agShow("agRegister"); });
 el("agGoToLogin").addEventListener("click",()=>{ agClearErr("agLoginErr"); agShow("agLogin"); });
 
@@ -2709,16 +2860,186 @@ function agErrMsg(err){
     "auth/missing-password":"パスワードを入力してください。",
     "auth/too-many-requests":"試行回数が多すぎます。しばらくしてから再度お試しください。",
     "auth/network-request-failed":"通信エラーです。電波状況をご確認ください。",
+    "auth/admin-restricted-operation":"作業員参加の準備がまだできていません（匿名ログインが無効です）。職長にご連絡ください。",
+    "auth/operation-not-allowed":"このログイン方法は現在使えません。設定をご確認ください。",
+    "permission-denied":"権限がありません。現場コードや参加状態をご確認ください。",
+    "unavailable":"通信エラーです。電波状況をご確認ください。",
     "auth/popup-closed-by-user":null
   };
   if(code in map) return map[code];
   return "エラーが発生しました。もう一度お試しください。";
 }
-function agShowDone(user){
-  el("agDoneMsg").textContent=(user && (user.displayName||user.email))?`ようこそ、${user.displayName||user.email} さん`:"";
-  agShow("agDone");
+
+/* --- 招待（現場コード・QR・参加用リンク）の表示 --- */
+function siteJoinUrl(code){ return location.origin + location.pathname + "?site=" + encodeURIComponent(code); }
+async function copyText(t){
+  try{ await navigator.clipboard.writeText(t); return true; }
+  catch(e){
+    try{
+      const ta=document.createElement("textarea"); ta.value=t; ta.style.position="fixed"; ta.style.opacity="0";
+      document.body.appendChild(ta); ta.select(); const ok=document.execCommand("copy"); ta.remove(); return ok;
+    }catch(e2){ return false; }
+  }
+}
+function renderInviteInto(box, code, siteName){
+  const url=siteJoinUrl(code);
+  let qrHtml="";
+  try{
+    if(typeof qrcode==="function"){
+      const qr=qrcode(0,"M"); qr.addData(url); qr.make();
+      qrHtml=`<div class="invite-qr">${qr.createSvgTag({cellSize:4,margin:2,scalable:true})}</div>`;
+    }
+  }catch(e){ /* QRライブラリが読み込めない時はコード・リンクのみ表示 */ }
+  box.innerHTML=`
+    ${siteName?`<div style="font-weight:700;text-align:center;margin-bottom:2px">${escapeHtml(siteName)}</div>`:""}
+    <div class="invite-code">${escapeHtml(code)}</div>
+    <p class="hint" style="text-align:center;margin:0 0 4px">現場コード（作業員が入力する6文字）</p>
+    ${qrHtml}
+    <div class="invite-url">${escapeHtml(url)}</div>
+    <button type="button" class="btn btn-soft inv-copy" style="margin-top:4px">📋 参加用リンクをコピー</button>`;
+  const cp=box.querySelector(".inv-copy");
+  if(cp) cp.addEventListener("click",async ()=>{
+    const ok=await copyText(url);
+    toast(ok?"参加用リンクをコピーしました":"コピーできませんでした。リンクを長押しでコピーしてください");
+  });
+}
+function openInviteModal(){
+  const saved=getSavedSite();
+  if(!saved||!saved.code){ toast("現場が選択されていません"); return; }
+  renderInviteInto(el("inviteBox"), saved.code, saved.name||(db.site&&db.site.name)||"");
+  el("inviteModal").classList.add("active");
+}
+el("inviteClose").addEventListener("click",()=>el("inviteModal").classList.remove("active"));
+el("inviteModal").addEventListener("click",e=>{ if(e.target.id==="inviteModal") el("inviteModal").classList.remove("active"); });
+
+/* --- 現場に入る --- */
+function freshDb(name){
+  return { site:{name:name||"新しい現場"}, locations:[], notes:[], processes:[], categories:[], commonProcesses:[], commonCategories:[], ui:{collapsed:[]} };
+}
+function enterAppWithSite(site, role){
+  if(window.__fbSetSite) window.__fbSetSite(site.code);
+  setSavedSite({code:site.code, name:site.name||""});
+  setRole(role);
+  applyMode();
+  gateHide();
+}
+async function enterSiteForeman(site){
+  agBusy=true;
+  try{
+    let remote=null;
+    try{
+      remote=await window.__fbPullSite(site.code);
+    }catch(e){
+      const saved=getSavedSite();
+      if(saved && saved.code===site.code){
+        // 前回もこの現場をひらいていた：手元のデータのまま開く
+        enterAppWithSite(site,"foreman");
+        toast("オフラインのため手元のデータを表示中");
+        return;
+      }
+      agSetErr("agSitesErr","現場データを取得できませんでした。通信状態をご確認ください。");
+      gateShow("agSites");
+      return;
+    }
+    db = remote || freshDb(site.name);
+    normalizeDb();
+    try{ localStorage.setItem(STORE_KEY, JSON.stringify(db)); }catch(e){}
+    enterAppWithSite(site,"foreman");
+    if(!remote) save(); // クラウド側に初期データを作っておく
+  } finally { agBusy=false; }
+}
+function enterSiteWorker(site){
+  enterAppWithSite(site,"worker");
 }
 
+/* --- 職長：現場一覧 --- */
+async function openSitesScreen(allowBack){
+  el("agSitesBack").style.display=allowBack?"":"none";
+  agClearErr("agSitesErr");
+  gateShow("agSites");
+  el("agSitesList").innerHTML=`<div class="ag-loading-dot">現場を読み込み中…</div>`;
+  if(!window.__fbListMySites){ el("agSitesList").innerHTML=""; agSetErr("agSitesErr","クラウド機能が使えません。通信環境をご確認ください。"); return; }
+  try{
+    const sites=await window.__fbListMySites();
+    sites.sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
+    if(!sites.length){
+      el("agSitesList").innerHTML=`<div class="ag-loading-dot">まだ現場がありません。<br>「新しい現場を作る」から始めてください。</div>`;
+    }else{
+      el("agSitesList").innerHTML=sites.map(s=>
+        `<button type="button" class="ag-site-item" data-code="${escapeHtml(s.code)}" data-name="${escapeHtml(s.name||"")}">
+          <span class="si-name">${escapeHtml(s.name||"（名称未設定）")}</span>
+          <span class="si-code" style="display:block">現場コード：${escapeHtml(s.code)}</span>
+        </button>`).join("");
+      el("agSitesList").querySelectorAll(".ag-site-item").forEach(b=>{
+        b.addEventListener("click",()=>enterSiteForeman({code:b.dataset.code, name:b.dataset.name}));
+      });
+    }
+  }catch(e){
+    el("agSitesList").innerHTML="";
+    agSetErr("agSitesErr","現場一覧を取得できませんでした。通信状態をご確認ください。");
+  }
+}
+el("agSitesBack").addEventListener("click",()=>gateHide());
+el("agSitesLogout").addEventListener("click",()=>doLogout());
+
+/* --- 職長：現場を作る --- */
+el("agSiteNewBtn").addEventListener("click",async ()=>{
+  agClearErr("agSiteNewErr");
+  el("agSiteNewName").value="";
+  el("agSiteNewImport").checked=false;
+  el("agSiteNewImportWrap").style.display="none";
+  agShow("agSiteNew");
+  // 旧方式（現場1つ前提）のクラウドデータが残っていれば「取り込む」チェックを出す
+  try{
+    if(window.__fbHasLegacyMain && await window.__fbHasLegacyMain()){
+      el("agSiteNewImportWrap").style.display="flex";
+      el("agSiteNewImport").checked=true;
+    }
+  }catch(e){}
+});
+el("agSiteNewBack").addEventListener("click",()=>agShow("agSites"));
+el("agSiteNewSubmit").addEventListener("click",async ()=>{
+  agClearErr("agSiteNewErr");
+  const name=el("agSiteNewName").value.trim();
+  if(!name){ agSetErr("agSiteNewErr","現場名を入力してください。"); return; }
+  if(!window.__fbCreateSite){ agSetErr("agSiteNewErr","クラウド機能が使えません。通信環境をご確認ください。"); return; }
+  const btn=el("agSiteNewSubmit"); btn.disabled=true; btn.textContent="作成中…";
+  agBusy=true;
+  try{
+    const site=await window.__fbCreateSite(name, el("agSiteNewImport").checked);
+    lastCreatedSite=site;
+    el("agSiteDoneName").textContent=site.name||"";
+    renderInviteInto(el("agSiteDoneInvite"), site.code, "");
+    agShow("agSiteDone");
+  }catch(e){ agSetErr("agSiteNewErr", agErrMsg(e)); }
+  finally{ agBusy=false; btn.disabled=false; btn.textContent="現場を作る"; }
+});
+el("agSiteDoneEnter").addEventListener("click",()=>{ if(lastCreatedSite) enterSiteForeman(lastCreatedSite); });
+
+/* --- 作業員：現場コードで参加（匿名ログイン） --- */
+el("agJoinSubmit").addEventListener("click",async ()=>{
+  agClearErr("agJoinErr");
+  const code=el("agJoinCode").value.trim().toUpperCase().replace(/[^A-Z0-9]/g,"");
+  const name=el("agJoinName").value.trim();
+  if(code.length!==6){ agSetErr("agJoinErr","現場コード（6文字）を入力してください。"); return; }
+  if(!name){ agSetErr("agJoinErr","お名前を入力してください。"); return; }
+  if(!window.__fbJoinSite){ agSetErr("agJoinErr","クラウド機能が使えません。通信環境をご確認ください。"); return; }
+  const btn=el("agJoinSubmit"); btn.disabled=true; btn.textContent="参加中…";
+  agBusy=true;
+  try{
+    const site=await window.__fbJoinSite(code,name);
+    setWorkerName(name);
+    enterSiteWorker(site);
+    toast(`「${site.name||"現場"}」に参加しました`);
+  }catch(e){
+    if(e && e.code==="app/site-not-found") agSetErr("agJoinErr","この現場コードの現場が見つかりません。コードをご確認ください。");
+    else if(e && e.code==="app/foreman-signed-in") agSetErr("agJoinErr","職長アカウントでログイン中のため参加できません。先にログアウトしてください。");
+    else agSetErr("agJoinErr", agErrMsg(e));
+  }
+  finally{ agBusy=false; btn.disabled=false; btn.textContent="参加する"; }
+});
+
+/* --- ログイン・新規登録・Googleログイン（成功後の画面遷移は agOnAuthState が行う） --- */
 el("agLoginSubmit").addEventListener("click", async ()=>{
   agClearErr("agLoginErr");
   const email=el("agLoginEmail").value.trim(), pass=el("agLoginPass").value;
@@ -2726,8 +3047,7 @@ el("agLoginSubmit").addEventListener("click", async ()=>{
   if(!window.__fbLoginEmail){ agSetErr("agLoginErr","クラウド機能が使えません。通信環境をご確認ください。"); return; }
   const btn=el("agLoginSubmit"); btn.disabled=true; btn.textContent="ログイン中…";
   try{
-    const user=await window.__fbLoginEmail(email,pass);
-    agShowDone(user);
+    await window.__fbLoginEmail(email,pass);
   }catch(e){ agSetErr("agLoginErr", agErrMsg(e)); }
   finally{ btn.disabled=false; btn.textContent="ログイン"; }
 });
@@ -2739,8 +3059,9 @@ el("agRegisterSubmit").addEventListener("click", async ()=>{
   if(!window.__fbRegisterEmail){ agSetErr("agRegisterErr","クラウド機能が使えません。通信環境をご確認ください。"); return; }
   const btn=el("agRegisterSubmit"); btn.disabled=true; btn.textContent="登録中…";
   try{
-    const user=await window.__fbRegisterEmail(name,email,pass);
-    agShowDone(user);
+    await window.__fbRegisterEmail(name,email,pass);
+    // 名前の登録はログイン通知より後に終わるため、表示だけ入力した名前に揃える
+    if(name) el("agSitesUser").textContent=name;
   }catch(e){ agSetErr("agRegisterErr", agErrMsg(e)); }
   finally{ btn.disabled=false; btn.textContent="登録する"; }
 });
@@ -2750,19 +3071,85 @@ el("agGoogleBtn").addEventListener("click", async ()=>{
   if(!window.__fbLoginGoogle){ agSetErr("agLoginErr","クラウド機能が使えません。通信環境をご確認ください。"); return; }
   const btn=el("agGoogleBtn"); btn.disabled=true;
   try{
-    const user=await window.__fbLoginGoogle();
-    agShowDone(user);
+    await window.__fbLoginGoogle();
   }catch(e){ const msg=agErrMsg(e); if(msg) agSetErr("agLoginErr", msg); }
   finally{ btn.disabled=false; }
 });
 
-el("agLogoutBtn").addEventListener("click", async ()=>{
-  if(window.__fbLogout) await window.__fbLogout().catch(()=>{});
-  agClearErr("agLoginErr"); agClearErr("agRegisterErr");
-  el("agLoginEmail").value=""; el("agLoginPass").value="";
-  el("agRegName").value=""; el("agRegEmail").value=""; el("agRegPass").value="";
-  agShow("agHome");
-});
+/* --- ログアウト（職長・作業員共通） --- */
+async function doLogout(){
+  agBusy=true;
+  try{ if(window.__fbLogout) await window.__fbLogout(); }catch(e){}
+  agBusy=false;
+  clearSavedSite();
+  if(window.__fbSetSite) window.__fbSetSite(null);
+  ["agLoginEmail","agLoginPass","agRegName","agRegEmail","agRegPass","agJoinCode"].forEach(id=>{ el(id).value=""; });
+  agClearErr("agLoginErr"); agClearErr("agRegisterErr"); agClearErr("agJoinErr");
+  gateShow("agHome");
+}
+
+/* --- 起動時・ログイン状態が変わった時の振り分け --- */
+window.agOnAuthState = function(user){
+  agResolved=true;
+  if(!AUTH_GATE) return;
+  if(agBusy) return;
+  agRoute(user);
+};
+async function agRoute(user){
+  const urlCode=(new URLSearchParams(location.search).get("site")||"").trim().toUpperCase();
+  if(!user){
+    clearSavedSite();
+    if(window.__fbSetSite) window.__fbSetSite(null);
+    if(urlCode){
+      el("agJoinCode").value=urlCode;
+      const n=getWorkerName(); if(n && !el("agJoinName").value) el("agJoinName").value=n;
+      agClearErr("agJoinErr"); gateShow("agJoin");
+    }else{
+      gateShow("agHome");
+    }
+    return;
+  }
+  if(user.isAnonymous){
+    const saved=getSavedSite();
+    // QRから別の現場をひらいた場合は、その現場への参加画面を出す
+    if(urlCode && (!saved || saved.code!==urlCode)){
+      el("agJoinCode").value=urlCode;
+      const n=getWorkerName(); if(n && !el("agJoinName").value) el("agJoinName").value=n;
+      agClearErr("agJoinErr"); gateShow("agJoin"); return;
+    }
+    if(saved && saved.code){
+      try{
+        const mem=await window.__fbGetMyWorker(saved.code);
+        if(agBusy) return;
+        if(mem){ enterSiteWorker(saved); return; }
+        clearSavedSite();
+      }catch(e){
+        // オフライン等：手元の記録を信じてそのまま開く
+        enterSiteWorker(saved); return;
+      }
+    }
+    const n=getWorkerName(); if(n && !el("agJoinName").value) el("agJoinName").value=n;
+    agClearErr("agJoinErr"); gateShow("agJoin");
+    return;
+  }
+  // 職長（メール・Googleログイン）
+  el("agSitesUser").textContent=user.displayName||user.email||"";
+  const saved=getSavedSite();
+  if(saved && saved.code){
+    try{
+      const meta=await window.__fbGetSite(saved.code);
+      if(agBusy) return;
+      if(meta && meta.ownerUid===user.uid){ await enterSiteForeman({code:saved.code, name:meta.name||saved.name||""}); return; }
+      clearSavedSite();
+    }catch(e){
+      // オフライン：手元のデータのまま開く
+      enterAppWithSite(saved,"foreman");
+      toast("オフラインのため手元のデータを表示中");
+      return;
+    }
+  }
+  openSitesScreen(false);
+}
 
 /* アプリ内の確認・入力ポップアップ（ブラウザのconfirm/promptに依存しない） */
 function pickStatus(current,title){
@@ -3067,7 +3454,7 @@ function renderReportList(list){
     const wt=`${w.getFullYear()}/${w.getMonth()+1}/${w.getDate()} ${String(w.getHours()).padStart(2,"0")}:${String(w.getMinutes()).padStart(2,"0")}`;
     html+=`<div class="card" style="padding:14px;margin-bottom:10px">
       <div class="report-card" data-id="${rep.id}" style="cursor:pointer">
-        <div style="font-weight:700">${escapeHtml(rep.site||"現場")}</div>
+        <div style="font-weight:700">${escapeHtml(rep.site||"現場")}${rep.by?`　<span style="font-weight:500;font-size:13px;color:var(--ink-soft)">${escapeHtml(rep.by)} さん</span>`:""}</div>
         <div class="detail-sub" style="margin-top:4px">受信：${wt}　完了 ${doneN}/${items.length}</div>
       </div>
       <button class="btn-danger-text report-del-btn" data-id="${rep.id}" style="width:auto;padding:6px 0;margin-top:2px;text-align:left">この報告を削除</button>
@@ -3177,6 +3564,12 @@ function setRole(r){ try{ localStorage.setItem(ROLE_KEY, r==="worker"?"worker":"
 function isWorker(){ return getRole()==="worker"; }
 
 function workerSwitchHtml(){
+  if(AUTH_GATE){
+    // 認証モード：役割はログイン方法で決まるため、切り替えではなく「退出（ログアウト）」を出す
+    return `<div style="text-align:center;margin-top:24px">
+      <button id="wkLeaveBtn" style="background:none;border:none;color:#8a8a8a;font-size:12px;text-decoration:underline;padding:8px">この現場から退出（ログアウト）</button>
+    </div>`;
+  }
   return `<div style="text-align:center;margin-top:24px">
     <button id="toForemanBtn" style="background:none;border:none;color:#8a8a8a;font-size:12px;text-decoration:underline;padding:8px">職長モードに切り替える</button>
   </div>`;
@@ -3190,11 +3583,21 @@ function bindWorkerShareControls(){
     if(!ok) return;
     setRole("foreman"); applyMode(); toast("職長モードに切り替えました");
   });
+  const lv=el("wkLeaveBtn");
+  if(lv) lv.addEventListener("click",async ()=>{
+    const ok=await uiConfirm("この現場から退出しますか？\nもう一度参加するには、現場コードが必要です。",{okText:"退出する",okStyle:"danger"});
+    if(!ok) return;
+    doLogout();
+  });
 }
 /* 役割に応じて画面を切り替える（起動時・切替時に呼ぶ） */
 function applyMode(){
   const w=isWorker();
   document.body.classList.toggle("worker-mode", w);
+  if(AUTH_GATE){
+    const saved=getSavedSite();
+    if(saved && saved.name) el("siteName").textContent=saved.name;
+  }
   if(w){ renderShareList(); showView("share"); }
   else { renderList(); showView("list"); }
 }
@@ -3207,7 +3610,7 @@ function makeDoneCode(){
     lid:it.lid, ln:it.ln, fl:it.fl, pid:it.pid, pn:it.pn,
     done:!!it.done, rem:(it.rem||[]).map(r=>({t:r.t,d:!!r.d}))
   }));
-  return { t:"done", site:o.site||"現場", at:Date.now(), items };
+  return { t:"done", site:o.site||"現場", by:getWorkerName()||"", at:Date.now(), items };
 }
 let pendingDoneReport=null;
 function openShareDone(){
@@ -3239,7 +3642,7 @@ function renderDoneReview(){
   });
   const w=new Date(obj.at||Date.now());
   const wt=`${w.getFullYear()}/${w.getMonth()+1}/${w.getDate()} ${String(w.getHours()).padStart(2,"0")}:${String(w.getMinutes()).padStart(2,"0")}`;
-  html+=`<div class="detail-sub">${escapeHtml(obj.site||"現場")}　受信：${wt}</div>`;
+  html+=`<div class="detail-sub">${escapeHtml(obj.site||"現場")}${obj.by?`　${escapeHtml(obj.by)} さんから`:""}　受信：${wt}</div>`;
   html+=`<div class="preview">完了にする工程 ${willDone}件　／　対象外 ${skipped}件</div>`;
   html+=`<div class="preview" style="background:#fff7e6;color:#92500a">チェックを外した工程は本体に反映されません（対象外は元から反映されません）</div>`;
   const groups={}, order=[];
@@ -3383,23 +3786,41 @@ el("shareDoneSendBtn").addEventListener("click", async ()=>{
 });
 
 /* 起動 */
-load(); applyMode();
+load();
+if(AUTH_GATE){
+  document.body.classList.add("auth-mode");
+  applyMode();
+  // ログイン状態が確定するまで入口画面（読み込み中）を出しておく
+  gateShow("agLoading");
+  // Firebaseが読み込めない（オフライン等）場合の逃げ道：前回の現場と役割で開く
+  setTimeout(()=>{
+    if(agResolved) return;
+    const saved=getSavedSite();
+    if(saved && saved.code){
+      if(window.__fbSetSite) window.__fbSetSite(saved.code);
+      gateHide();
+      toast("オフラインのため手元のデータを表示中");
+    }else{
+      gateShow("agHome");
+    }
+  }, 6000);
+}else{
+  applyMode();
+}
 </script>
 
 <!-- ===== Firebase 連携（ステップ2：保存・読み込みをクラウド化） ===== -->
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-app.js";
-  import { getFirestore, doc, setDoc, getDoc, collection, addDoc, getDocs, deleteDoc } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-firestore.js";
+  import { getFirestore, doc, setDoc, getDoc, collection, addDoc, getDocs, deleteDoc, query, where } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-firestore.js";
   import {
     getAuth, onAuthStateChanged,
     signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile,
-    signInWithPopup, GoogleAuthProvider, signOut
+    signInWithPopup, GoogleAuthProvider, signInAnonymously, signOut
   } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-auth.js";
 
-  // 認証まわりの準備が全て整うまでの一時スイッチ。
-  // true にすると「入口画面（ログイン／作業員参加）」がアプリの手前に出るようになる。
-  // 今回はまだログイン処理そのものを作っていないため false（今まで通りアプリが開ける）。
-  const AUTH_GATE_ENABLED = false;
+  // 入口画面（ログイン／現場参加）のスイッチは、上の通常scriptの window.AUTH_GATE_ENABLED で管理
+  const GATE = window.AUTH_GATE_ENABLED === true;
 
   const firebaseConfig = {
     apiKey: "AIzaSyAtueupYX9AGEsHcSSy8gulMBJxhsvCU0c",
@@ -3413,20 +3834,32 @@ load(); applyMode();
   const fbApp = initializeApp(firebaseConfig);
   const fbDb = getFirestore(fbApp);
   const fbAuth = getAuth(fbApp);
-  const mainRef = doc(fbDb, "genba", "main");
-  const reportsCol = collection(fbDb, "reports");
-  const taskListsCol = collection(fbDb, "tasklists");
 
-  // ログイン状態に応じて「入口画面」か「通常のアプリ画面」かを出し分け
-  // （AUTH_GATE_ENABLED が false の間は常に通常画面のまま＝今まで通りの動作）
+  // ===== 保存場所 =====
+  // 旧方式（現場1つ前提）：genba/main・reports/{id}・tasklists/{id}
+  //   → 新しい現場を作る時の「取り込み元」としてだけ使う（読み取り専用。書き込みはしない）
+  // 新方式（現場ごと）  ：sites/{現場コード} … 現場の看板（名前・オーナー）
+  //                       sites/{現場コード}/data/main      … 本体データ（中身のdb構造は今まで通り）
+  //                       sites/{現場コード}/reports/{id}   … 完了報告
+  //                       sites/{現場コード}/tasklists/{id} … 作業リスト
+  //                       sites/{現場コード}/workers/{uid}  … 参加した作業員
+  const legacyMainRef = doc(fbDb, "genba", "main");
+  const legacyReportsCol = collection(fbDb, "reports");
+  const legacyTaskListsCol = collection(fbDb, "tasklists");
+
+  let siteCode = null; // いまひらいている現場コード（認証モードで現場に入ると入る）
+  window.__fbSetSite = function(code){ siteCode = code || null; };
+  function mainRef(){ return siteCode ? doc(fbDb, "sites", siteCode, "data", "main") : legacyMainRef; }
+  function reportsCol(){ return siteCode ? collection(fbDb, "sites", siteCode, "reports") : legacyReportsCol; }
+  function taskListsCol(){ return siteCode ? collection(fbDb, "sites", siteCode, "tasklists") : legacyTaskListsCol; }
+
+  // ログイン状態が変わったら、画面の振り分けは通常script側（agOnAuthState）が行う
   onAuthStateChanged(fbAuth, (user) => {
-    if(!AUTH_GATE_ENABLED) return;
-    const gate = document.getElementById("authGate");
-    if(!gate) return;
-    gate.classList.toggle("active", !user);
+    if(!GATE) return;
+    if(typeof window.agOnAuthState === "function") window.agOnAuthState(user);
   });
 
-  // 職長ログイン／新規登録（下の通常scriptから呼び出す）
+  // ===== ログイン・ログアウト =====
   window.__fbLoginEmail = async function(email, pass){
     const cred = await signInWithEmailAndPassword(fbAuth, email, pass);
     return cred.user;
@@ -3445,52 +3878,145 @@ load(); applyMode();
     await signOut(fbAuth);
   };
 
-  // 本体側（下の通常script）から呼び出せるように window に公開
+  // ===== 現場（sites）の作成・一覧・参加 =====
+  const CODE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // 見間違えやすい 0/O/1/I は使わない
+  function genCode(){
+    let s = "";
+    for(let i=0;i<6;i++) s += CODE_CHARS[Math.floor(Math.random()*CODE_CHARS.length)];
+    return s;
+  }
+  // 旧方式のクラウドデータが残っているか（現場作成画面の「取り込む」チェックの出し分け用）
+  window.__fbHasLegacyMain = async function(){
+    const snap = await getDoc(legacyMainRef);
+    return snap.exists() && !!snap.data().db;
+  };
+  // 現場を作る。importLegacy=true なら旧方式の genba/main をコピーして初期データにする
+  // （コピーするだけで、旧データそのものは消さない・書き換えない）
+  window.__fbCreateSite = async function(name, importLegacy){
+    const user = fbAuth.currentUser;
+    if(!user || user.isAnonymous) throw { code:"app/not-foreman" };
+    let dbObj = null;
+    if(importLegacy){
+      const snap = await getDoc(legacyMainRef);
+      if(snap.exists()) dbObj = snap.data().db || null;
+    }
+    if(dbObj){
+      dbObj = JSON.parse(JSON.stringify(dbObj));
+      if(!dbObj.site || typeof dbObj.site !== "object") dbObj.site = {};
+      dbObj.site.name = name;
+    }else{
+      dbObj = { site:{name:name}, locations:[], notes:[], processes:[], categories:[], commonProcesses:[], commonCategories:[], ui:{collapsed:[]} };
+    }
+    // 現場コードを発行（既存の現場とぶつからないコードになるまで引き直す）
+    let code = null;
+    for(let i=0;i<8;i++){
+      const c = genCode();
+      const s = await getDoc(doc(fbDb, "sites", c));
+      if(!s.exists()){ code = c; break; }
+    }
+    if(!code) throw { code:"app/code-collision" };
+    await setDoc(doc(fbDb, "sites", code), {
+      name: name, code: code,
+      ownerUid: user.uid, ownerName: user.displayName || user.email || "",
+      createdAt: Date.now()
+    });
+    await setDoc(doc(fbDb, "sites", code, "data", "main"), { db: dbObj, updatedAt: Date.now() });
+    return { code: code, name: name };
+  };
+  // 自分がオーナーの現場一覧
+  window.__fbListMySites = async function(){
+    const user = fbAuth.currentUser;
+    if(!user) return [];
+    const q = query(collection(fbDb, "sites"), where("ownerUid", "==", user.uid));
+    const snap = await getDocs(q);
+    const out = [];
+    snap.forEach(d => out.push(Object.assign({ code: d.id }, d.data())));
+    return out;
+  };
+  // 現場の看板情報を取得（無ければ null）
+  window.__fbGetSite = async function(code){
+    const snap = await getDoc(doc(fbDb, "sites", code));
+    return snap.exists() ? Object.assign({ code: snap.id }, snap.data()) : null;
+  };
+  // 指定現場のデータ本体を取得（現場をひらく時に使う）
+  window.__fbPullSite = async function(code){
+    const snap = await getDoc(doc(fbDb, "sites", code, "data", "main"));
+    return snap.exists() ? (snap.data().db || null) : null;
+  };
+  // 作業員として現場に参加：匿名ログイン→現場を確認→workersに名前を登録
+  window.__fbJoinSite = async function(code, workerName){
+    let user = fbAuth.currentUser;
+    if(user && !user.isAnonymous) throw { code:"app/foreman-signed-in" };
+    if(!user){
+      const cred = await signInAnonymously(fbAuth);
+      user = cred.user;
+    }
+    const snap = await getDoc(doc(fbDb, "sites", code));
+    if(!snap.exists()) throw { code:"app/site-not-found" };
+    await setDoc(doc(fbDb, "sites", code, "workers", user.uid),
+      { name: workerName, joinedAt: Date.now() }, { merge: true });
+    return { code: code, name: (snap.data() && snap.data().name) || "" };
+  };
+  // 自分（作業員）がこの現場に登録済みか
+  window.__fbGetMyWorker = async function(code){
+    const user = fbAuth.currentUser;
+    if(!user) return null;
+    const snap = await getDoc(doc(fbDb, "sites", code, "workers", user.uid));
+    return snap.exists() ? snap.data() : null;
+  };
+
+  // ===== 本体データの保存・読み込み =====
   window.__fbPull = async function(){
-    const snap = await getDoc(mainRef);
+    if(GATE && !siteCode) return null; // 認証モードで現場未選択の間は何も読まない
+    const snap = await getDoc(mainRef());
     return snap.exists() ? (snap.data().db || null) : null;
   };
   window.__fbPush = async function(dbObj){
-    await setDoc(mainRef, { db: dbObj, updatedAt: Date.now() });
+    if(GATE && !siteCode) return; // 認証モードで現場未選択の間は保存しない（旧データを守る）
+    await setDoc(mainRef(), { db: dbObj, updatedAt: Date.now() });
   };
 
-  // 完了報告（作業員→職長）：reports コレクションに1件ずつ追加／一覧取得／反映後の削除
+  // ===== 完了報告（作業員→職長） =====
   window.__fbSubmitReport = async function(reportObj){
-    await addDoc(reportsCol, reportObj);
+    await addDoc(reportsCol(), reportObj);
   };
   window.__fbListReports = async function(){
-    const snap = await getDocs(reportsCol);
+    const snap = await getDocs(reportsCol());
     const out = [];
     snap.forEach(d => out.push(Object.assign({ id: d.id }, d.data())));
     return out;
   };
   window.__fbDeleteReport = async function(reportId){
-    await deleteDoc(doc(fbDb, "reports", reportId));
+    if(siteCode) await deleteDoc(doc(fbDb, "sites", siteCode, "reports", reportId));
+    else await deleteDoc(doc(fbDb, "reports", reportId));
   };
 
-  // 作業リスト（職長→作業員）：tasklists コレクションに1件ずつ追加／一覧取得（複数保持）
+  // ===== 作業リスト（職長→作業員） =====
   window.__fbSubmitTaskList = async function(listObj){
-    await addDoc(taskListsCol, listObj);
+    await addDoc(taskListsCol(), listObj);
   };
   window.__fbListTaskLists = async function(){
-    const snap = await getDocs(taskListsCol);
+    const snap = await getDocs(taskListsCol());
     const out = [];
     snap.forEach(d => out.push(Object.assign({ id: d.id }, d.data())));
     return out;
   };
 
-  // 起動時：画面はまずローカルデータで即表示済み。ここでクラウドの最新を取得できたら上書きする
-  (async () => {
-    try{
-      const remote = await window.__fbPull();
-      if(remote && typeof window.applyRemoteDb === "function"){
-        window.applyRemoteDb(remote);
+  // 起動時の自動取得は「入口画面なし（旧方式）」の時だけ。
+  // 認証モードでは、現場をひらいたタイミングで取得する（enterSiteForeman）
+  if(!GATE){
+    (async () => {
+      try{
+        const remote = await window.__fbPull();
+        if(remote && typeof window.applyRemoteDb === "function"){
+          window.applyRemoteDb(remote);
+        }
+      }catch(e){
+        if(typeof window.toast === "function") window.toast("オフラインのため手元のデータを表示中");
+        console.error(e);
       }
-    }catch(e){
-      if(typeof window.toast === "function") window.toast("オフラインのため手元のデータを表示中");
-      console.error(e);
-    }
-  })();
+    })();
+  }
 </script>
 
 </body></html>
