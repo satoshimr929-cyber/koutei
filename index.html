@@ -262,6 +262,21 @@
   .auth-gate .ag-sub{font-size:13px;color:var(--ink-soft);margin-bottom:36px}
   .auth-gate .ag-btns{width:100%;max-width:320px;display:flex;flex-direction:column;gap:12px}
   .auth-gate .ag-btns .btn{padding:16px}
+
+  .auth-gate .ag-screen{display:none;width:100%;max-width:320px}
+  .auth-gate .ag-screen.active{display:block}
+  .auth-gate .ag-back{align-self:flex-start;background:none;border:none;color:var(--accent-press);
+    font-size:14px;font-weight:600;padding:6px 0 18px;cursor:pointer}
+  .auth-gate .ag-form .field{text-align:left;margin-bottom:14px}
+  .auth-gate .ag-err{background:#fce8e6;color:var(--danger);font-size:13px;border-radius:9px;
+    padding:10px 12px;margin-bottom:14px;text-align:left;display:none}
+  .auth-gate .ag-err.show{display:block}
+  .auth-gate .ag-switch{margin-top:16px;font-size:13px;color:var(--ink-soft)}
+  .auth-gate .ag-switch button{background:none;border:none;color:var(--accent);font-weight:700;
+    font-size:13px;padding:0;cursor:pointer;text-decoration:underline}
+  .auth-gate .ag-divider{display:flex;align-items:center;gap:10px;margin:16px 0;color:var(--ink-soft);font-size:12px}
+  .auth-gate .ag-divider::before,.auth-gate .ag-divider::after{content:"";flex:1;height:1px;background:var(--line)}
+  .btn-google{background:#fff;color:var(--ink);border:1.5px solid var(--line-strong)}
   .sheet{background:#fff;width:100%;max-width:680px;border-radius:22px 22px 0 0;max-height:92vh;overflow-y:auto;
     padding:20px 16px calc(env(safe-area-inset-bottom) + 18px);box-shadow:0 -10px 40px rgba(15,23,32,.22);position:relative}
   .sheet::before{content:"";position:absolute;top:9px;left:50%;transform:translateX(-50%);width:38px;height:4px;border-radius:999px;background:#dbe1e9}
@@ -492,13 +507,55 @@
 
 <!-- 入口画面（職長ログイン／作業員参加の選択） -->
 <div class="auth-gate" id="authGate">
-  <div class="ag-icon">🏗️</div>
-  <div class="ag-title">マンション工事 施工・工程管理</div>
-  <div class="ag-sub">職長としてログイン、または作業員として現場に参加してください</div>
-  <div class="ag-btns">
-    <button class="btn btn-primary" id="agForemanBtn">職長としてログイン</button>
-    <button class="btn btn-soft" id="agWorkerBtn">作業員として現場に参加</button>
+
+  <!-- ホーム：職長ログイン or 作業員参加 -->
+  <div class="ag-screen active" id="agHome">
+    <div class="ag-icon">🏗️</div>
+    <div class="ag-title">マンション工事 施工・工程管理</div>
+    <div class="ag-sub">職長としてログイン、または作業員として現場に参加してください</div>
+    <div class="ag-btns">
+      <button class="btn btn-primary" id="agForemanBtn">職長としてログイン</button>
+      <button class="btn btn-soft" id="agWorkerBtn">作業員として現場に参加</button>
+    </div>
   </div>
+
+  <!-- 職長ログイン -->
+  <div class="ag-screen" id="agLogin">
+    <button class="ag-back" id="agLoginBack">‹ 戻る</button>
+    <div class="ag-title" style="margin-bottom:20px">職長としてログイン</div>
+    <div class="ag-err" id="agLoginErr"></div>
+    <div class="ag-form">
+      <div class="field"><label>メールアドレス</label><input type="email" id="agLoginEmail" autocomplete="email" placeholder="you@example.com"></div>
+      <div class="field"><label>パスワード</label><input type="password" id="agLoginPass" autocomplete="current-password" placeholder="6文字以上"></div>
+    </div>
+    <button class="btn btn-primary" id="agLoginSubmit">ログイン</button>
+    <div class="ag-divider">または</div>
+    <button class="btn btn-google" id="agGoogleBtn">Googleでログイン</button>
+    <div class="ag-switch">アカウントをお持ちでない方は <button id="agGoToRegister">新規登録</button></div>
+  </div>
+
+  <!-- 職長 新規登録 -->
+  <div class="ag-screen" id="agRegister">
+    <button class="ag-back" id="agRegisterBack">‹ 戻る</button>
+    <div class="ag-title" style="margin-bottom:20px">新規登録</div>
+    <div class="ag-err" id="agRegisterErr"></div>
+    <div class="ag-form">
+      <div class="field"><label>お名前</label><input type="text" id="agRegName" autocomplete="name" placeholder="山田 太郎"></div>
+      <div class="field"><label>メールアドレス</label><input type="email" id="agRegEmail" autocomplete="email" placeholder="you@example.com"></div>
+      <div class="field"><label>パスワード</label><input type="password" id="agRegPass" autocomplete="new-password" placeholder="6文字以上"></div>
+    </div>
+    <button class="btn btn-primary" id="agRegisterSubmit">登録する</button>
+    <div class="ag-switch">すでにアカウントをお持ちの方は <button id="agGoToLogin">ログイン</button></div>
+  </div>
+
+  <!-- ログイン完了（仮画面：次のステップで現場選択に置き換え） -->
+  <div class="ag-screen" id="agDone">
+    <div class="ag-icon">✅</div>
+    <div class="ag-title">ログインできました</div>
+    <div class="ag-sub" id="agDoneMsg"></div>
+    <div class="ag-btns"><button class="btn btn-soft" id="agLogoutBtn">ログアウト</button></div>
+  </div>
+
 </div>
 
 
@@ -2625,9 +2682,87 @@ let toastTimer;
 function toast(msg){ const t=el("toast"); t.textContent=msg; t.classList.add("show"); clearTimeout(toastTimer); toastTimer=setTimeout(()=>t.classList.remove("show"),1800); }
 window.toast = toast;
 
-/* 入口画面（職長ログイン／作業員参加）：ボタンは次のステップで実装 */
-el("agForemanBtn").addEventListener("click",()=>toast("次のステップで実装します"));
+/* 入口画面（職長ログイン／作業員参加） */
+function agShow(id){
+  document.querySelectorAll(".auth-gate .ag-screen").forEach(s=>s.classList.remove("active"));
+  el(id).classList.add("active");
+}
+function agClearErr(id){ const e=el(id); e.textContent=""; e.classList.remove("show"); }
+function agSetErr(id,msg){ const e=el(id); e.textContent=msg; e.classList.add("show"); }
+
+el("agForemanBtn").addEventListener("click",()=>{ agClearErr("agLoginErr"); agShow("agLogin"); });
 el("agWorkerBtn").addEventListener("click",()=>toast("次のステップで実装します"));
+el("agLoginBack").addEventListener("click",()=>agShow("agHome"));
+el("agRegisterBack").addEventListener("click",()=>agShow("agHome"));
+el("agGoToRegister").addEventListener("click",()=>{ agClearErr("agRegisterErr"); agShow("agRegister"); });
+el("agGoToLogin").addEventListener("click",()=>{ agClearErr("agLoginErr"); agShow("agLogin"); });
+
+function agErrMsg(err){
+  const code = (err && err.code) || "";
+  const map = {
+    "auth/invalid-email":"メールアドレスの形式が正しくありません。",
+    "auth/user-not-found":"メールアドレスまたはパスワードが正しくありません。",
+    "auth/wrong-password":"メールアドレスまたはパスワードが正しくありません。",
+    "auth/invalid-credential":"メールアドレスまたはパスワードが正しくありません。",
+    "auth/email-already-in-use":"このメールアドレスはすでに登録されています。",
+    "auth/weak-password":"パスワードは6文字以上にしてください。",
+    "auth/missing-password":"パスワードを入力してください。",
+    "auth/too-many-requests":"試行回数が多すぎます。しばらくしてから再度お試しください。",
+    "auth/network-request-failed":"通信エラーです。電波状況をご確認ください。",
+    "auth/popup-closed-by-user":null
+  };
+  if(code in map) return map[code];
+  return "エラーが発生しました。もう一度お試しください。";
+}
+function agShowDone(user){
+  el("agDoneMsg").textContent=(user && (user.displayName||user.email))?`ようこそ、${user.displayName||user.email} さん`:"";
+  agShow("agDone");
+}
+
+el("agLoginSubmit").addEventListener("click", async ()=>{
+  agClearErr("agLoginErr");
+  const email=el("agLoginEmail").value.trim(), pass=el("agLoginPass").value;
+  if(!email||!pass){ agSetErr("agLoginErr","メールアドレスとパスワードを入力してください。"); return; }
+  if(!window.__fbLoginEmail){ agSetErr("agLoginErr","クラウド機能が使えません。通信環境をご確認ください。"); return; }
+  const btn=el("agLoginSubmit"); btn.disabled=true; btn.textContent="ログイン中…";
+  try{
+    const user=await window.__fbLoginEmail(email,pass);
+    agShowDone(user);
+  }catch(e){ agSetErr("agLoginErr", agErrMsg(e)); }
+  finally{ btn.disabled=false; btn.textContent="ログイン"; }
+});
+
+el("agRegisterSubmit").addEventListener("click", async ()=>{
+  agClearErr("agRegisterErr");
+  const name=el("agRegName").value.trim(), email=el("agRegEmail").value.trim(), pass=el("agRegPass").value;
+  if(!email||!pass){ agSetErr("agRegisterErr","メールアドレスとパスワードを入力してください。"); return; }
+  if(!window.__fbRegisterEmail){ agSetErr("agRegisterErr","クラウド機能が使えません。通信環境をご確認ください。"); return; }
+  const btn=el("agRegisterSubmit"); btn.disabled=true; btn.textContent="登録中…";
+  try{
+    const user=await window.__fbRegisterEmail(name,email,pass);
+    agShowDone(user);
+  }catch(e){ agSetErr("agRegisterErr", agErrMsg(e)); }
+  finally{ btn.disabled=false; btn.textContent="登録する"; }
+});
+
+el("agGoogleBtn").addEventListener("click", async ()=>{
+  agClearErr("agLoginErr");
+  if(!window.__fbLoginGoogle){ agSetErr("agLoginErr","クラウド機能が使えません。通信環境をご確認ください。"); return; }
+  const btn=el("agGoogleBtn"); btn.disabled=true;
+  try{
+    const user=await window.__fbLoginGoogle();
+    agShowDone(user);
+  }catch(e){ const msg=agErrMsg(e); if(msg) agSetErr("agLoginErr", msg); }
+  finally{ btn.disabled=false; }
+});
+
+el("agLogoutBtn").addEventListener("click", async ()=>{
+  if(window.__fbLogout) await window.__fbLogout().catch(()=>{});
+  agClearErr("agLoginErr"); agClearErr("agRegisterErr");
+  el("agLoginEmail").value=""; el("agLoginPass").value="";
+  el("agRegName").value=""; el("agRegEmail").value=""; el("agRegPass").value="";
+  agShow("agHome");
+});
 
 /* アプリ内の確認・入力ポップアップ（ブラウザのconfirm/promptに依存しない） */
 function pickStatus(current,title){
@@ -3255,7 +3390,11 @@ load(); applyMode();
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-app.js";
   import { getFirestore, doc, setDoc, getDoc, collection, addDoc, getDocs, deleteDoc } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-firestore.js";
-  import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-auth.js";
+  import {
+    getAuth, onAuthStateChanged,
+    signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile,
+    signInWithPopup, GoogleAuthProvider, signOut
+  } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-auth.js";
 
   // 認証まわりの準備が全て整うまでの一時スイッチ。
   // true にすると「入口画面（ログイン／作業員参加）」がアプリの手前に出るようになる。
@@ -3286,6 +3425,25 @@ load(); applyMode();
     if(!gate) return;
     gate.classList.toggle("active", !user);
   });
+
+  // 職長ログイン／新規登録（下の通常scriptから呼び出す）
+  window.__fbLoginEmail = async function(email, pass){
+    const cred = await signInWithEmailAndPassword(fbAuth, email, pass);
+    return cred.user;
+  };
+  window.__fbRegisterEmail = async function(name, email, pass){
+    const cred = await createUserWithEmailAndPassword(fbAuth, email, pass);
+    if(name) await updateProfile(cred.user, { displayName: name });
+    return cred.user;
+  };
+  window.__fbLoginGoogle = async function(){
+    const provider = new GoogleAuthProvider();
+    const cred = await signInWithPopup(fbAuth, provider);
+    return cred.user;
+  };
+  window.__fbLogout = async function(){
+    await signOut(fbAuth);
+  };
 
   // 本体側（下の通常script）から呼び出せるように window に公開
   window.__fbPull = async function(){
