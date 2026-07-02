@@ -534,6 +534,10 @@
   .wk-name{font-weight:700;font-size:15px;color:var(--ink)}
   .wk-sub{font-size:12px;color:var(--ink-soft);margin-top:3px}
   .wk-del{background:#f1f4f7;border:none;color:var(--danger);border-radius:9px;padding:8px 10px;font-size:12px;flex:0 0 auto}
+  /* 写真の拡大表示（タップで閉じる） */
+  .photo-lightbox{position:fixed;inset:0;z-index:120;background:rgba(10,14,18,.88);
+    display:flex;align-items:center;justify-content:center;padding:16px;cursor:pointer}
+  .photo-lightbox img{max-width:100%;max-height:100%;object-fit:contain;border-radius:10px}
 </style>
 </head>
 <body>
@@ -732,6 +736,10 @@
   <button type="button" class="drawer-item auth-only" id="drawerWorkers">
     <span class="di-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><circle cx="17" cy="9" r="2.6"/><path d="M15.5 14.6a5 5 0 0 1 6 4.9"/></svg></span>
     <span class="di-tx">参加している作業員<span class="di-sub">誰がログインしたかを確認</span></span>
+  </button>
+  <button type="button" class="drawer-item auth-only" id="drawerPhotoMigrate">
+    <span class="di-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"><rect x="3" y="5" width="14" height="12" rx="2"/><circle cx="8.5" cy="9.5" r="1.5"/><path d="m3 15 4-4 5 5"/><path d="M18 9v8"/><path d="m15 12 3-3 3 3"/></svg></span>
+    <span class="di-tx">写真をクラウドへ移行<span class="di-sub">端末内の写真を全員で見られるように</span></span>
   </button>
   <button type="button" class="drawer-item auth-only" id="drawerSiteSwitch">
     <span class="di-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"><path d="m16 3 4 4-4 4"/><path d="M20 7H4"/><path d="m8 21-4-4 4-4"/><path d="M4 17h16"/></svg></span>
@@ -1703,7 +1711,7 @@ function renderDetail(){
   if(om){ om.value=loc.optionMemo||""; om.addEventListener("change",()=>{ loc.optionMemo=om.value; loc.updatedAt=Date.now(); save(); }); }
   renderPhotoGrid(el("locPhotoGrid"),photos,{
     onAdd:()=>{ pickerTarget="locationPhoto"; el("filePicker").click(); },
-    onDelete:(i)=>{ uiConfirm("この写真を削除しますか？").then(ok=>{ if(ok){ photos.splice(i,1); save(); renderDetail(); } }); }
+    onDelete:(i)=>{ uiConfirm("この写真を削除しますか？").then(ok=>{ if(ok){ deleteCloudPhotos([photos[i]]); photos.splice(i,1); save(); renderDetail(); } }); }
   });
   const nl=el("noteList");
   if(notes.length===0){ nl.innerHTML=`<div class="empty">注意点はまだありません</div>`; }
@@ -1717,11 +1725,12 @@ function renderDetail(){
       const share = cnt>1 ? `<span class="note-share">他${cnt-1}部屋と共通</span>` : "";
       const ph=(n.photos&&n.photos.length)?`<div class="note-photos">${n.photos.map(p=>`<img src="${p}">`).join("")}</div>`:"";
       w.innerHTML=`${tag}${share}<div class="note-top"><div class="note-text">${escapeHtml(n.text)}</div><button class="note-del">削除</button></div>${ph}`;
+      w.querySelectorAll(".note-photos img").forEach(img=>img.addEventListener("click",()=>openLightbox(img.src)));
       w.querySelector(".note-del").addEventListener("click",()=>{
         const msg = cnt>1 ? "この部屋からこの注意点を外しますか？（他の部屋には残ります）" : "この注意点を削除しますか？";
         uiConfirm(msg).then(ok=>{ if(!ok) return;
           n.locationIds=(n.locationIds||[]).filter(id=>id!==loc.id);
-          if(n.locationIds.length===0) db.notes=db.notes.filter(x=>x.id!==n.id);
+          if(n.locationIds.length===0){ deleteCloudPhotos(n.photos); db.notes=db.notes.filter(x=>x.id!==n.id); }
           save(); renderDetail();
         });
       });
@@ -1732,9 +1741,14 @@ function renderDetail(){
   el("delLocBtn").addEventListener("click",()=>{
     uiConfirm("この部屋を削除します。よろしいですか？").then(ok=>{
       if(!ok) return;
+      deleteCloudPhotos(loc.photos);
       db.locations=db.locations.filter(l=>l.id!==loc.id);
       db.notes.forEach(n=>{ n.locationIds=(n.locationIds||[]).filter(id=>id!==loc.id); });
-      db.notes=db.notes.filter(n=>(n.locationIds||[]).length>0);
+      db.notes=db.notes.filter(n=>{
+        if((n.locationIds||[]).length>0) return true;
+        deleteCloudPhotos(n.photos); // どの部屋にも属さなくなった注意点は写真ごと削除
+        return false;
+      });
       save(); showView("list"); renderList(); toast("削除しました");
     });
   });
@@ -1746,6 +1760,7 @@ function renderPhotoGrid(container,photos,{onAdd,onDelete}){
     const c=document.createElement("div"); c.className="ph";
     c.innerHTML=`<img src="${p}"><button class="del" aria-label="削除">×</button>`;
     c.querySelector(".del").addEventListener("click",()=>onDelete(i));
+    c.querySelector("img").addEventListener("click",()=>openLightbox(p));
     container.appendChild(c);
   });
   const a=document.createElement("div"); a.className="add-photo";
@@ -2583,10 +2598,16 @@ function openNoteModal(){
   refreshNotePhotoGrid(); el("noteModal").classList.add("active");
 }
 function closeNoteModal(){ el("noteModal").classList.remove("active"); }
+/* キャンセル時：アップロード済みの写真をクラウドから片付けてから閉じる */
+function cancelNoteModal(){
+  deleteCloudPhotos(notePhotosBuffer);
+  notePhotosBuffer=[];
+  closeNoteModal();
+}
 function refreshNotePhotoGrid(){
   renderPhotoGrid(el("notePhotoGrid"),notePhotosBuffer,{
     onAdd:()=>{ pickerTarget="notePhoto"; el("filePicker").click(); },
-    onDelete:(i)=>{ notePhotosBuffer.splice(i,1); refreshNotePhotoGrid(); }
+    onDelete:(i)=>{ deleteCloudPhotos([notePhotosBuffer[i]]); notePhotosBuffer.splice(i,1); refreshNotePhotoGrid(); }
   });
 }
 el("noteSave").addEventListener("click",()=>{
@@ -2600,7 +2621,7 @@ el("noteSave").addEventListener("click",()=>{
   save(); closeNoteModal(); renderDetail();
   toast(targets.length>1 ? `${targets.length}部屋に注意点を登録しました` : "注意点を追加しました");
 });
-el("noteCancel").addEventListener("click",closeNoteModal);
+el("noteCancel").addEventListener("click",cancelNoteModal);
 
 /* =========================================================
    完了期限まとめ登録モーダル
@@ -2635,15 +2656,53 @@ el("dlSave").addEventListener("click",()=>{
 el("dlCancel").addEventListener("click",closeDeadlineModal);
 el("dlModal").addEventListener("click",e=>{ if(e.target.id==="dlModal") closeDeadlineModal(); });
 
-el("filePicker").addEventListener("change",(ev)=>{
+/* ===== 写真のクラウド保存（Firebase Storage） =====
+   - 追加時：圧縮 → Storageへアップロード → dbにはURLだけを保存（容量を食わない）
+   - 電波が悪くて失敗したら：従来どおりBase64で端末に保存（後で「写真をクラウドへ移行」で再送できる）
+   - 既存のBase64写真もそのまま表示できる（imgのsrcにどちらを入れても動く） */
+function isCloudPhoto(p){ return typeof p==="string" && /^https?:\/\//.test(p); }
+async function preparePhoto(dataUrl){
+  if(AUTH_GATE && window.__fbUploadPhoto){
+    try{
+      return await window.__fbUploadPhoto(dataUrl);
+    }catch(e){
+      toast("通信できないため、写真は端末に保存しました（メニューの「写真をクラウドへ移行」で後から送れます）");
+    }
+  }
+  return dataUrl;
+}
+/* Storage上の写真をまとめて削除（Base64は対象外。失敗しても本体処理は止めない） */
+function deleteCloudPhotos(arr){
+  (arr||[]).forEach(p=>{
+    if(isCloudPhoto(p) && window.__fbDeletePhoto) window.__fbDeletePhoto(p).catch(()=>{});
+  });
+}
+/* 写真の拡大表示（タップで閉じる） */
+function openLightbox(url){
+  const ov=document.createElement("div");
+  ov.className="photo-lightbox";
+  const img=document.createElement("img");
+  img.src=url;
+  ov.appendChild(img);
+  ov.addEventListener("click",()=>ov.remove());
+  document.body.appendChild(ov);
+}
+
+el("filePicker").addEventListener("change", async (ev)=>{
   const file=ev.target.files&&ev.target.files[0]; ev.target.value="";
   if(!file) return;
-  compressImage(file,800,0.6).then(d=>{
-    if(pickerTarget==="locationPhoto"){
-      const loc=db.locations.find(l=>l.id===currentLocId);
-      if(loc){ (loc.photos=loc.photos||[]).push(d); save(); renderDetail(); }
-    }else if(pickerTarget==="notePhoto"){ notePhotosBuffer.push(d); refreshNotePhotoGrid(); }
-  }).catch(()=>toast("写真を読み込めませんでした"));
+  const target=pickerTarget, locId=currentLocId; // アップロード中に画面が変わっても迷子にならないように
+  let d;
+  try{ d=await compressImage(file,800,0.6); }
+  catch(e){ toast("写真を読み込めませんでした"); return; }
+  if(AUTH_GATE) toast("写真を保存中…");
+  const p=await preparePhoto(d);
+  if(target==="locationPhoto"){
+    const loc=db.locations.find(l=>l.id===locId);
+    if(loc){ (loc.photos=loc.photos||[]).push(p); save(); if(currentLocId===locId && el("viewDetail").classList.contains("active")) renderDetail(); }
+  }else if(target==="notePhoto"){
+    notePhotosBuffer.push(p); refreshNotePhotoGrid();
+  }
 });
 el("restorePicker").addEventListener("change",(ev)=>{
   const file=ev.target.files&&ev.target.files[0]; ev.target.value="";
@@ -2809,7 +2868,31 @@ el("drawerWorker").addEventListener("click",async ()=>{
   if(!ok) return;
   setRole("worker"); applyMode(); toast("作業員モードに切り替えました");
 });
+/* 端末内(Base64)の写真をStorageへ一括移行（アップロード失敗分の再送も兼ねる） */
+async function migratePhotosToCloud(){
+  if(!window.__fbUploadPhoto){ toast("クラウド機能が使えません。通信環境をご確認ください"); return; }
+  const jobs=[];
+  db.locations.forEach(l=>(l.photos||[]).forEach((p,i)=>{ if(!isCloudPhoto(p)) jobs.push({arr:l.photos,i}); }));
+  db.notes.forEach(n=>(n.photos||[]).forEach((p,i)=>{ if(!isCloudPhoto(p)) jobs.push({arr:n.photos,i}); }));
+  if(jobs.length===0){ toast("移行する写真はありません（すべてクラウド保存済みです）"); return; }
+  const ok=await uiConfirm(
+    `端末内の写真 ${jobs.length}枚をクラウドへ移行しますか？\n移行すると、作業員も作業リストで写真を見られるようになります。\n（電波の良い場所で行うのがおすすめです）`,
+    {okText:"移行する",okStyle:"primary"});
+  if(!ok) return;
+  let done=0, fail=0;
+  for(const j of jobs){
+    toast(`写真を移行中… ${done+fail+1}/${jobs.length}`);
+    try{ j.arr[j.i]=await window.__fbUploadPhoto(j.arr[j.i]); done++; }
+    catch(e){ fail++; }
+  }
+  if(done) save();
+  if(el("viewDetail").classList.contains("active")) renderDetail();
+  toast(fail
+    ? `${done}枚を移行しました（${fail}枚は失敗。電波の良い場所でもう一度お試しください）`
+    : `${done}枚すべてクラウドへ移行しました`);
+}
 /* 認証モードのメニュー（現場コード・QR招待／現場切り替え／ログアウト） */
+el("drawerPhotoMigrate").addEventListener("click",()=>{ closeDrawer(); migratePhotosToCloud(); });
 el("drawerInvite").addEventListener("click",()=>{ closeDrawer(); openInviteModal(); });
 el("drawerWorkers").addEventListener("click",()=>{ closeDrawer(); openWorkersModal(); });
 el("drawerSiteSwitch").addEventListener("click",()=>{ closeDrawer(); openSitesScreen(true); });
@@ -2837,7 +2920,7 @@ el("dueDoneBtn").addEventListener("click",async ()=>{
   save(); renderDue();
   toast(`${checked.length}件を完了にしました`);
 });
-el("noteModal").addEventListener("click",e=>{ if(e.target.id==="noteModal") closeNoteModal(); });
+el("noteModal").addEventListener("click",e=>{ if(e.target.id==="noteModal") cancelNoteModal(); });
 
 let toastTimer;
 function toast(msg){ const t=el("toast"); t.textContent=msg; t.classList.add("show"); clearTimeout(toastTimer); toastTimer=setTimeout(()=>t.classList.remove("show"),1800); }
@@ -3331,11 +3414,16 @@ function shareRoomInfo(loc){
   if(om) info.om=om;
   const ns=notesFor(loc).map(n=>{
     const p=n.processId?findProcAny(n.processId):null;
-    return { x:n.text, p:p?p.name:"" };
+    const nph=(n.photos||[]).filter(isCloudPhoto); // クラウド写真だけURLで同梱（Base64は重いので載せない）
+    const o={ x:n.text, p:p?p.name:"" };
+    if(nph.length) o.ph=nph;
+    return o;
   });
   if(ns.length) info.notes=ns;
   const pc=(loc.photos||[]).length;
   if(pc) info.pc=pc;
+  const ph=(loc.photos||[]).filter(isCloudPhoto);
+  if(ph.length) info.ph=ph;
   return (info.om||info.notes||info.pc)?info:null;
 }
 function collectShareCandidates(pid, ids){
@@ -3433,14 +3521,22 @@ function renderShareRoomInfo(ri){
     ri.notes.forEach(n=>{
       const tag=n.p?`<span class="note-tag">${escapeHtml(n.p)}</span> `:"";
       h+=`<div class="sh-info-row">${tag}${escapeHtml(n.x)}</div>`;
+      if(n.ph&&n.ph.length){
+        h+=`<div class="note-photos">${n.ph.map(u=>`<img class="sh-ph-img" src="${escapeHtml(u)}">`).join("")}</div>`;
+      }
     });
     h+=`</div>`;
   }
   if(ri.om){
     h+=`<div class="sh-info sh-opt"><div class="sh-info-h">🔧 オプション変更</div><div class="sh-info-row">${escapeHtml(ri.om)}</div></div>`;
   }
-  if(ri.pc){
-    h+=`<div class="sh-info sh-photo">📷 参考写真 ${ri.pc}枚（受け渡しは準備中）</div>`;
+  if(ri.ph&&ri.ph.length){
+    const rest=(ri.pc||0)-ri.ph.length;
+    h+=`<div class="sh-info sh-photo"><div class="sh-info-h">📷 参考写真 ${ri.ph.length}枚（タップで拡大）</div>
+      <div class="note-photos">${ri.ph.map(u=>`<img class="sh-ph-img" src="${escapeHtml(u)}">`).join("")}</div>
+      ${rest>0?`<div style="margin-top:4px">ほか ${rest}枚は職長の端末内のみ（クラウド未移行）</div>`:""}</div>`;
+  }else if(ri.pc){
+    h+=`<div class="sh-info sh-photo">📷 参考写真 ${ri.pc}枚（クラウド未移行のため、この端末では見られません）</div>`;
   }
   return h;
 }
@@ -3495,6 +3591,7 @@ function renderShareList(){
   html+=`<button class="btn-danger-text" id="shareClearBtn" style="margin-top:8px">この取り込みデータを削除</button>`;
   if(worker) html+=workerSwitchHtml();
   v.innerHTML=html;
+  v.querySelectorAll(".sh-ph-img").forEach(img=>img.addEventListener("click",()=>openLightbox(img.src)));
   const dbn=el("shareDoneBtn");
   if(dbn) dbn.addEventListener("click",openShareDone);
   const pbn=el("sharePhotoReturnBtn");
@@ -3953,6 +4050,7 @@ if(AUTH_GATE){
     signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile,
     signInWithPopup, GoogleAuthProvider, signInAnonymously, signOut
   } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-auth.js";
+  import { getStorage, ref as storageRef, uploadString, getDownloadURL, deleteObject } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-storage.js";
 
   // 入口画面（ログイン／現場参加）のスイッチは、上の通常scriptの window.AUTH_GATE_ENABLED で管理
   const GATE = window.AUTH_GATE_ENABLED === true;
@@ -3969,6 +4067,7 @@ if(AUTH_GATE){
   const fbApp = initializeApp(firebaseConfig);
   const fbDb = getFirestore(fbApp);
   const fbAuth = getAuth(fbApp);
+  const fbStorage = getStorage(fbApp);
 
   // ===== 保存場所 =====
   // 旧方式（現場1つ前提）：genba/main・reports/{id}・tasklists/{id}
@@ -4166,6 +4265,26 @@ if(AUTH_GATE){
   window.__fbDeleteTaskList = async function(listId){
     if(siteCode) await deleteDoc(doc(fbDb, "sites", siteCode, "tasklists", listId));
     else await deleteDoc(doc(fbDb, "tasklists", listId));
+  };
+
+  // ===== 写真（Firebase Storage） =====
+  // 圧縮済みの写真(dataURL)を Storage: sites/{現場コード}/photos/ に保存し、表示用URLを返す
+  window.__fbUploadPhoto = async function(dataUrl){
+    if(!siteCode) throw { code:"app/no-site" };
+    const name = Date.now().toString(36) + Math.random().toString(36).slice(2,7) + ".jpg";
+    const r = storageRef(fbStorage, "sites/" + siteCode + "/photos/" + name);
+    await uploadString(r, dataUrl, "data_url");
+    return await getDownloadURL(r);
+  };
+  // Storage上の写真を削除（URLがStorageのものだけ対象。無ければ何もしない）
+  window.__fbDeletePhoto = async function(url){
+    if(typeof url !== "string" || !/^https:\/\/firebasestorage\.googleapis\.com\//.test(url)) return;
+    try{
+      await deleteObject(storageRef(fbStorage, url));
+    }catch(e){
+      if(e && e.code === "storage/object-not-found") return; // すでに無い＝OK
+      throw e;
+    }
   };
 
   // 起動時の自動取得は「入口画面なし（旧方式）」の時だけ。
