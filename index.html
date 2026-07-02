@@ -527,6 +527,13 @@
   body.auth-mode .drawer-item.auth-only{display:flex !important}
   body.auth-mode .drawer-sec.auth-only{display:block !important}
   body.auth-mode #drawerWorker, body.auth-mode #drawerSecDevice{display:none !important}
+  body.auth-mode .field.auth-only{display:block !important}
+  /* 参加している作業員の一覧 */
+  .wk-row{display:flex;align-items:center;gap:10px;border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-bottom:8px}
+  .wk-main{flex:1;min-width:0}
+  .wk-name{font-weight:700;font-size:15px;color:var(--ink)}
+  .wk-sub{font-size:12px;color:var(--ink-soft);margin-top:3px}
+  .wk-del{background:#f1f4f7;border:none;color:var(--danger);border-radius:9px;padding:8px 10px;font-size:12px;flex:0 0 auto}
 </style>
 </head>
 <body>
@@ -718,6 +725,10 @@
     <span class="di-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3zM18 18h3v3h-3z"/></svg></span>
     <span class="di-tx">現場コード・QR招待<span class="di-sub">作業員をこの現場に招待</span></span>
   </button>
+  <button type="button" class="drawer-item auth-only" id="drawerWorkers">
+    <span class="di-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><circle cx="17" cy="9" r="2.6"/><path d="M15.5 14.6a5 5 0 0 1 6 4.9"/></svg></span>
+    <span class="di-tx">参加している作業員<span class="di-sub">誰がログインしたかを確認</span></span>
+  </button>
   <button type="button" class="drawer-item auth-only" id="drawerSiteSwitch">
     <span class="di-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"><path d="m16 3 4 4-4 4"/><path d="M20 7H4"/><path d="m8 21-4-4 4-4"/><path d="M4 17h16"/></svg></span>
     <span class="di-tx">現場を切り替える<span class="di-sub">別の現場をひらく・新しく作る</span></span>
@@ -770,6 +781,18 @@
     <div id="inviteBox"></div>
     <div class="sheet-actions">
       <button class="btn btn-soft" id="inviteClose">閉じる</button>
+    </div>
+  </div>
+</div>
+
+<!-- 参加している作業員モーダル（職長用） -->
+<div class="modal" id="workersModal">
+  <div class="sheet">
+    <h3>参加している作業員</h3>
+    <p class="hint" style="margin:0 0 10px">この現場に参加した作業員と、最後にひらいた日時です。</p>
+    <div id="workersList"></div>
+    <div class="sheet-actions">
+      <button class="btn btn-soft" id="workersClose">閉じる</button>
     </div>
   </div>
 </div>
@@ -831,6 +854,10 @@
 <div class="modal" id="shareMakeModal">
   <div class="sheet">
     <h3>作業リストを作る</h3>
+    <div class="field auth-only" id="shareToWrap">
+      <label>渡す相手（作業員を指定できます）</label>
+      <select id="shareTo"><option value="">全員（宛先なし）</option></select>
+    </div>
     <div class="field">
       <label>工程で絞り込み</label>
       <select id="shareProc"></select>
@@ -2780,6 +2807,7 @@ el("drawerWorker").addEventListener("click",async ()=>{
 });
 /* 認証モードのメニュー（現場コード・QR招待／現場切り替え／ログアウト） */
 el("drawerInvite").addEventListener("click",()=>{ closeDrawer(); openInviteModal(); });
+el("drawerWorkers").addEventListener("click",()=>{ closeDrawer(); openWorkersModal(); });
 el("drawerSiteSwitch").addEventListener("click",()=>{ closeDrawer(); openSitesScreen(true); });
 el("drawerLogout").addEventListener("click",async ()=>{
   closeDrawer();
@@ -2912,6 +2940,49 @@ function openInviteModal(){
 el("inviteClose").addEventListener("click",()=>el("inviteModal").classList.remove("active"));
 el("inviteModal").addEventListener("click",e=>{ if(e.target.id==="inviteModal") el("inviteModal").classList.remove("active"); });
 
+/* --- 参加している作業員の一覧（職長用） --- */
+function fmtDateTime(ts){
+  if(!ts) return "－";
+  const d=new Date(ts);
+  return `${d.getFullYear()}/${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`;
+}
+async function openWorkersModal(){
+  el("workersModal").classList.add("active");
+  const box=el("workersList");
+  box.innerHTML=`<div class="empty" style="padding:20px 0">読み込み中…</div>`;
+  if(!window.__fbListWorkers){ box.innerHTML=`<div class="empty" style="padding:20px 0">クラウド機能が使えません</div>`; return; }
+  let list=[];
+  try{ list=await window.__fbListWorkers(); }
+  catch(e){ box.innerHTML=`<div class="empty" style="padding:20px 0">取得に失敗しました。通信状態をご確認ください</div>`; return; }
+  if(!list.length){
+    box.innerHTML=`<div class="empty" style="padding:20px 0">まだ作業員が参加していません。<br>「現場コード・QR招待」から招待できます。</div>`;
+    return;
+  }
+  list.sort((a,b)=>(b.lastSeenAt||b.joinedAt||0)-(a.lastSeenAt||a.joinedAt||0));
+  box.innerHTML=list.map(w=>`
+    <div class="wk-row">
+      <div class="wk-main">
+        <div class="wk-name">${escapeHtml(w.name||"（名前なし）")}</div>
+        <div class="wk-sub">参加：${fmtDateTime(w.joinedAt)}<br>最終ログイン：${fmtDateTime(w.lastSeenAt||w.joinedAt)}</div>
+      </div>
+      <button type="button" class="wk-del" data-uid="${escapeHtml(w.uid)}" data-name="${escapeHtml(w.name||"")}">外す</button>
+    </div>`).join("");
+  box.querySelectorAll(".wk-del").forEach(btn=>{
+    btn.addEventListener("click",async ()=>{
+      const ok=await uiConfirm(`${btn.dataset.name||"この作業員"} さんをこの現場から外しますか？\n外すと、この現場のデータを見られなくなります。`,{okText:"外す",okStyle:"danger"});
+      if(!ok) return;
+      if(!window.__fbRemoveWorker){ toast("クラウド機能が使えません"); return; }
+      try{
+        await window.__fbRemoveWorker(btn.dataset.uid);
+        toast("外しました");
+        openWorkersModal();
+      }catch(e){ toast("外せませんでした。通信状態をご確認ください"); }
+    });
+  });
+}
+el("workersClose").addEventListener("click",()=>el("workersModal").classList.remove("active"));
+el("workersModal").addEventListener("click",e=>{ if(e.target.id==="workersModal") el("workersModal").classList.remove("active"); });
+
 /* --- 現場に入る --- */
 function freshDb(name){
   return { site:{name:name||"新しい現場"}, locations:[], notes:[], processes:[], categories:[], commonProcesses:[], commonCategories:[], ui:{collapsed:[]} };
@@ -2950,6 +3021,17 @@ async function enterSiteForeman(site){
 }
 function enterSiteWorker(site){
   enterAppWithSite(site,"worker");
+  // 「最終ログイン」を記録（職長の作業員一覧に表示される。失敗しても支障なし）
+  if(window.__fbTouchWorker) window.__fbTouchWorker().catch(()=>{});
+}
+/* 作業員の退出：匿名ログインは維持したまま現場だけ離れる
+   （ログアウトしてしまうと別人扱いになり、宛先指定の作業リストが届かなくなるため） */
+function doWorkerLeave(){
+  clearSavedSite();
+  if(window.__fbSetSite) window.__fbSetSite(null);
+  el("agJoinCode").value="";
+  agClearErr("agJoinErr");
+  gateShow("agHome");
 }
 
 /* --- 職長：現場一覧 --- */
@@ -3321,6 +3403,22 @@ function openShareMake(){
   pendingTaskListData=null;
   el("shareCandWrap").style.display="none";
   el("shareMakeModal").classList.add("active");
+  // 宛先（作業員）の選択肢を読み込む（認証モードのみ）
+  if(AUTH_GATE){
+    const sel=el("shareTo");
+    sel.innerHTML=`<option value="">全員（宛先なし）</option>`;
+    if(window.__fbListWorkers){
+      window.__fbListWorkers().then(list=>{
+        list.sort((a,b)=>(a.joinedAt||0)-(b.joinedAt||0));
+        list.forEach(w=>{
+          const o=document.createElement("option");
+          o.value=w.uid; o.textContent=`${w.name||"（名前なし）"} さん`;
+          o.dataset.name=w.name||"";
+          sel.appendChild(o);
+        });
+      }).catch(()=>{});
+    }
+  }
 }
 /* 部屋ごとの付帯情報を作業リストに表示する（情報が無ければ空文字） */
 function renderShareRoomInfo(ri){
@@ -3500,7 +3598,12 @@ async function openTaskListPicker(){
   renderTaskListPickerLoading();
   if(!window.__fbListTaskLists){ renderTaskListPickerError("クラウド機能が使えません"); return; }
   try{
-    const list=await window.__fbListTaskLists();
+    let list=await window.__fbListTaskLists();
+    // 作業員には「全員向け」と「自分宛て」だけを見せる
+    if(AUTH_GATE && isWorker() && window.__fbMyUid){
+      const me=window.__fbMyUid();
+      list=list.filter(t=>!t.to || t.to===me);
+    }
     list.sort((a,b)=>(b.at||0)-(a.at||0));
     renderTaskListPicker(list);
   }catch(e){
@@ -3533,9 +3636,10 @@ function renderTaskListPicker(list){
     const items=Array.isArray(t.items)?t.items:[];
     const w=new Date(t.at||Date.now());
     const wt=`${w.getFullYear()}/${w.getMonth()+1}/${w.getDate()} ${String(w.getHours()).padStart(2,"0")}:${String(w.getMinutes()).padStart(2,"0")}`;
+    const toTag=t.to?`<span style="font-weight:600;color:var(--accent-press)">宛先：${escapeHtml(t.toName||"指定あり")}${t.toName?" さん":""}</span>　`:"";
     html+=`<div class="card tlp-card" data-id="${t.id}" style="padding:14px;margin-bottom:10px;cursor:pointer">
       <div style="font-weight:700">${escapeHtml(t.site||"現場")}</div>
-      <div class="detail-sub" style="margin-top:4px">作成：${wt}　作業 ${items.length}件</div>
+      <div class="detail-sub" style="margin-top:4px">${toTag}作成：${wt}　作業 ${items.length}件</div>
     </div>`;
   });
   html+=taskListPickerCloseHtml();
@@ -3587,7 +3691,7 @@ function bindWorkerShareControls(){
   if(lv) lv.addEventListener("click",async ()=>{
     const ok=await uiConfirm("この現場から退出しますか？\nもう一度参加するには、現場コードが必要です。",{okText:"退出する",okStyle:"danger"});
     if(!ok) return;
-    doLogout();
+    doWorkerLeave();
   });
 }
 /* 役割に応じて画面を切り替える（起動時・切替時に呼ぶ） */
@@ -3758,9 +3862,16 @@ el("shareSendBtn").addEventListener("click", async ()=>{
   const btn=el("shareSendBtn");
   btn.disabled=true; btn.textContent="送信中…";
   try{
-    await window.__fbSubmitTaskList(pendingTaskListData);
+    const payload=Object.assign({}, pendingTaskListData);
+    // 宛先（作業員指定）。空なら全員向け
+    const sel=el("shareTo");
+    if(AUTH_GATE && sel && sel.value){
+      payload.to=sel.value;
+      payload.toName=(sel.selectedOptions[0]&&sel.selectedOptions[0].dataset.name)||"";
+    }
+    await window.__fbSubmitTaskList(payload);
     el("shareMakeModal").classList.remove("active");
-    toast("作業リストをクラウドに送信しました");
+    toast(payload.toName?`${payload.toName} さん宛てに送信しました`:"作業リストをクラウドに送信しました");
   }catch(e){
     toast("送信に失敗しました。通信状態をご確認のうえ、もう一度お試しください");
   }finally{
@@ -3953,8 +4064,10 @@ if(AUTH_GATE){
     }
     const snap = await getDoc(doc(fbDb, "sites", code));
     if(!snap.exists()) throw { code:"app/site-not-found" };
+    const prev = await getDoc(doc(fbDb, "sites", code, "workers", user.uid));
     await setDoc(doc(fbDb, "sites", code, "workers", user.uid),
-      { name: workerName, joinedAt: Date.now() }, { merge: true });
+      { name: workerName, joinedAt: prev.exists() ? (prev.data().joinedAt || Date.now()) : Date.now(), lastSeenAt: Date.now() },
+      { merge: true });
     return { code: code, name: (snap.data() && snap.data().name) || "" };
   };
   // 自分（作業員）がこの現場に登録済みか
@@ -3963,6 +4076,30 @@ if(AUTH_GATE){
     if(!user) return null;
     const snap = await getDoc(doc(fbDb, "sites", code, "workers", user.uid));
     return snap.exists() ? snap.data() : null;
+  };
+  // いまの現場に参加している作業員の一覧（職長用）
+  window.__fbListWorkers = async function(){
+    if(!siteCode) return [];
+    const snap = await getDocs(collection(fbDb, "sites", siteCode, "workers"));
+    const out = [];
+    snap.forEach(d => out.push(Object.assign({ uid: d.id }, d.data())));
+    return out;
+  };
+  // 作業員を現場から外す（職長用）
+  window.__fbRemoveWorker = async function(uid){
+    if(!siteCode) return;
+    await deleteDoc(doc(fbDb, "sites", siteCode, "workers", uid));
+  };
+  // 作業員が現場をひらいた時刻を記録（職長の一覧に「最終ログイン」として表示）
+  window.__fbTouchWorker = async function(){
+    const user = fbAuth.currentUser;
+    if(!user || !siteCode) return;
+    await setDoc(doc(fbDb, "sites", siteCode, "workers", user.uid),
+      { lastSeenAt: Date.now() }, { merge: true });
+  };
+  // 自分のユーザーID（作業リストの宛先の照合に使う）
+  window.__fbMyUid = function(){
+    return fbAuth.currentUser ? fbAuth.currentUser.uid : null;
   };
 
   // ===== 本体データの保存・読み込み =====
