@@ -711,6 +711,10 @@
     <span class="di-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"><path d="M12 15V4"/><path d="m8 8 4-4 4 4"/><path d="M5 14v5a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-5"/></svg></span>
     <span class="di-tx">作業リストを作る<span class="di-sub">作業員に渡すコードを発行</span></span>
   </button>
+  <button type="button" class="drawer-item" id="drawerTaskLists">
+    <span class="di-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M8 9h8"/><path d="M8 13h8"/><path d="M8 17h5"/></svg></span>
+    <span class="di-tx">送った作業リスト<span class="di-sub">クラウド上のリストを確認・削除</span></span>
+  </button>
   <button type="button" class="drawer-item" id="drawerReportList">
     <span class="di-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 3v2h6V3"/><path d="m9 13 2 2 4-4"/></svg></span>
     <span class="di-tx">完了報告を確認<span class="di-sub">作業員からの報告をクラウドで確認</span></span>
@@ -3631,15 +3635,19 @@ function renderTaskListPicker(list){
     bindTaskListPickerClose();
     return;
   }
+  const canDel=!isWorker(); // 職長だけがクラウド上のリストを削除できる
   html+=`<div class="detail-sub">${list.length}件（タップして取り込み）</div>`;
   list.forEach(t=>{
     const items=Array.isArray(t.items)?t.items:[];
     const w=new Date(t.at||Date.now());
     const wt=`${w.getFullYear()}/${w.getMonth()+1}/${w.getDate()} ${String(w.getHours()).padStart(2,"0")}:${String(w.getMinutes()).padStart(2,"0")}`;
     const toTag=t.to?`<span style="font-weight:600;color:var(--accent-press)">宛先：${escapeHtml(t.toName||"指定あり")}${t.toName?" さん":""}</span>　`:"";
-    html+=`<div class="card tlp-card" data-id="${t.id}" style="padding:14px;margin-bottom:10px;cursor:pointer">
-      <div style="font-weight:700">${escapeHtml(t.site||"現場")}</div>
-      <div class="detail-sub" style="margin-top:4px">${toTag}作成：${wt}　作業 ${items.length}件</div>
+    html+=`<div class="card" style="padding:14px;margin-bottom:10px">
+      <div class="tlp-card" data-id="${t.id}" style="cursor:pointer">
+        <div style="font-weight:700">${escapeHtml(t.site||"現場")}</div>
+        <div class="detail-sub" style="margin-top:4px">${toTag}作成：${wt}　作業 ${items.length}件</div>
+      </div>
+      ${canDel?`<button class="btn-danger-text tlp-del-btn" data-id="${t.id}" style="width:auto;padding:6px 0;margin-top:2px;text-align:left">この作業リストを削除</button>`:""}
     </div>`;
   });
   html+=taskListPickerCloseHtml();
@@ -3653,6 +3661,21 @@ function renderTaskListPicker(list){
       saveShareList(t);
       goShareList();
       toast(`作業 ${(t.items||[]).length}件を取り込みました`);
+    });
+  });
+  el("viewTaskListPicker").querySelectorAll(".tlp-del-btn").forEach(btn=>{
+    btn.addEventListener("click", async (e)=>{
+      e.stopPropagation();
+      const ok=await uiConfirm("この作業リストを削除しますか？\n作業員は今後このリストを取り込めなくなります。\n（すでに取り込んだ端末のデータはそのまま残ります）",{okText:"削除する",okStyle:"danger"});
+      if(!ok) return;
+      if(!window.__fbDeleteTaskList){ toast("クラウド機能が使えません"); return; }
+      try{
+        await window.__fbDeleteTaskList(btn.dataset.id);
+        toast("作業リストを削除しました");
+        openTaskListPicker();
+      }catch(e2){
+        toast("削除に失敗しました。通信状態をご確認ください");
+      }
     });
   });
   bindTaskListPickerClose();
@@ -3844,6 +3867,7 @@ function applyDoneReview(obj){
 el("shareMakeBtn").addEventListener("click",openShareMake);
 el("shareImportBtn").addEventListener("click",openTaskListPicker);
 el("drawerShareMake").addEventListener("click",()=>{ closeDrawer(); openShareMake(); });
+el("drawerTaskLists").addEventListener("click",()=>{ closeDrawer(); openTaskListPicker(); });
 el("drawerReportList").addEventListener("click",()=>{ closeDrawer(); openReportList(); });
 el("shareFilterBtn").addEventListener("click",()=>{
   const pid=el("shareProc").value;
@@ -4137,6 +4161,11 @@ if(AUTH_GATE){
     const out = [];
     snap.forEach(d => out.push(Object.assign({ id: d.id }, d.data())));
     return out;
+  };
+  // 作業リストの削除（職長用。ルール上もオーナーのみ削除可）
+  window.__fbDeleteTaskList = async function(listId){
+    if(siteCode) await deleteDoc(doc(fbDb, "sites", siteCode, "tasklists", listId));
+    else await deleteDoc(doc(fbDb, "tasklists", listId));
   };
 
   // 起動時の自動取得は「入口画面なし（旧方式）」の時だけ。
