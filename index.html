@@ -1000,10 +1000,23 @@ function save(){
   return true;
 }
 /* ===== クラウド同期（Firebase）：window.__fbPull / window.__fbPush はFirebase用scriptが用意 ===== */
+/* クラウド保存・取得エラーの理由を日本語にする（原因調査のためエラーコードも表示する） */
+function cloudErrMsg(e, fallback){
+  const code=(e&&e.code)||"";
+  if(code==="permission-denied")
+    return "この現場を読み書きする権限がありません。現場を作ったときと同じアカウントでログインしているかご確認ください（コード: permission-denied）";
+  if(code==="invalid-argument"||code==="resource-exhausted")
+    return "データが大きすぎて保存できませんでした。メニューの「写真をクラウドへ移行」を行うと軽くなります（コード: "+code+"）";
+  if(code==="unauthenticated")
+    return "ログインが切れています。お手数ですが、もう一度ログインしてください（コード: unauthenticated）";
+  if(code==="unavailable"||code==="deadline-exceeded")
+    return "通信エラーです。電波の良い場所でもう一度お試しください";
+  return fallback+(code?"（コード: "+code+"）":"（通信状態をご確認ください）");
+}
 function cloudPush(){
   if(!window.__fbPush) return; // クラウド機能が読み込めていない時は何もしない（ローカル保存は成功済み）
-  window.__fbPush(JSON.parse(JSON.stringify(db))).catch(()=>{
-    toast("クラウドへの保存に失敗しました（通信状態をご確認ください）");
+  window.__fbPush(JSON.parse(JSON.stringify(db))).catch((e)=>{
+    toast(cloudErrMsg(e,"クラウドへの保存に失敗しました"));
   });
 }
 // リモートのデータで画面ごと更新する（起動時の自動取得／手動取得の両方から呼ばれる）
@@ -1020,7 +1033,7 @@ function cloudPullManual(){
   window.__fbPull().then(remote=>{
     if(remote){ applyRemoteDb(remote); toast("最新データを取得しました"); }
     else{ toast("クラウドにまだデータがありません"); }
-  }).catch(()=>{ toast("取得に失敗しました。通信状態をご確認ください"); });
+  }).catch((e)=>{ toast(cloudErrMsg(e,"取得に失敗しました")); });
 }
 function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,7); }
 const el=(id)=>document.getElementById(id);
@@ -2666,7 +2679,12 @@ async function preparePhoto(dataUrl){
     try{
       return await window.__fbUploadPhoto(dataUrl);
     }catch(e){
-      toast("通信できないため、写真は端末に保存しました（メニューの「写真をクラウドへ移行」で後から送れます）");
+      const code=(e&&e.code)||"";
+      if(code==="storage/unauthorized"){
+        toast("写真置き場の設定（Storageルール）がまだ済んでいないため、写真は端末に保存しました。設定後にメニューの「写真をクラウドへ移行」で送れます");
+      }else{
+        toast("通信できないため、写真は端末に保存しました（メニューの「写真をクラウドへ移行」で後から送れます）"+(code?"（コード: "+code+"）":""));
+      }
     }
   }
   return dataUrl;
@@ -2879,17 +2897,18 @@ async function migratePhotosToCloud(){
     `端末内の写真 ${jobs.length}枚をクラウドへ移行しますか？\n移行すると、作業員も作業リストで写真を見られるようになります。\n（電波の良い場所で行うのがおすすめです）`,
     {okText:"移行する",okStyle:"primary"});
   if(!ok) return;
-  let done=0, fail=0;
+  let done=0, fail=0, failCode="";
   for(const j of jobs){
     toast(`写真を移行中… ${done+fail+1}/${jobs.length}`);
     try{ j.arr[j.i]=await window.__fbUploadPhoto(j.arr[j.i]); done++; }
-    catch(e){ fail++; }
+    catch(e){ fail++; failCode=(e&&e.code)||failCode; }
   }
   if(done) save();
   if(el("viewDetail").classList.contains("active")) renderDetail();
-  toast(fail
-    ? `${done}枚を移行しました（${fail}枚は失敗。電波の良い場所でもう一度お試しください）`
-    : `${done}枚すべてクラウドへ移行しました`);
+  if(!fail){ toast(`${done}枚すべてクラウドへ移行しました`); return; }
+  toast(failCode==="storage/unauthorized"
+    ? `${fail}枚を移行できませんでした。写真置き場の設定（Storageルール）がまだ済んでいないようです（SETUP.md 手順5）`
+    : `${done}枚を移行しました（${fail}枚は失敗。電波の良い場所でもう一度お試しください${failCode?`。コード: ${failCode}`:""}）`);
 }
 /* 認証モードのメニュー（現場コード・QR招待／現場切り替え／ログアウト） */
 el("drawerPhotoMigrate").addEventListener("click",()=>{ closeDrawer(); migratePhotosToCloud(); });
