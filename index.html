@@ -1013,6 +1013,13 @@ function cloudErrMsg(e, fallback){
     return "通信エラーです。電波の良い場所でもう一度お試しください";
   return fallback+(code?"（コード: "+code+"）":"（通信状態をご確認ください）");
 }
+/* 「手元のデータで開く」ときの案内（本当にオフラインなのか、権限エラーなのかを区別して表示） */
+function offlineFallbackMsg(e){
+  const code=(e&&e.code)||"";
+  if(code==="permission-denied")
+    return "クラウドの現場データを読む権限がないため、手元のデータを表示中です（コード: permission-denied。ルール設定かログイン中のアカウントをご確認ください）";
+  return "オフラインのため手元のデータを表示中"+(code?"（コード: "+code+"）":"");
+}
 function cloudPush(){
   if(!window.__fbPush) return; // クラウド機能が読み込めていない時は何もしない（ローカル保存は成功済み）
   window.__fbPush(JSON.parse(JSON.stringify(db))).catch((e)=>{
@@ -3111,10 +3118,10 @@ async function enterSiteForeman(site){
       if(saved && saved.code===site.code){
         // 前回もこの現場をひらいていた：手元のデータのまま開く
         enterAppWithSite(site,"foreman");
-        toast("オフラインのため手元のデータを表示中");
+        toast(offlineFallbackMsg(e));
         return;
       }
-      agSetErr("agSitesErr","現場データを取得できませんでした。通信状態をご確認ください。");
+      agSetErr("agSitesErr","現場データを取得できませんでした。通信状態をご確認ください。"+((e&&e.code)?"（コード: "+e.code+"）":""));
       gateShow("agSites");
       return;
     }
@@ -3330,9 +3337,9 @@ async function agRoute(user){
       if(meta && meta.ownerUid===user.uid){ await enterSiteForeman({code:saved.code, name:meta.name||saved.name||""}); return; }
       clearSavedSite();
     }catch(e){
-      // オフライン：手元のデータのまま開く
+      // オフライン等：手元のデータのまま開く（メッセージには失敗の理由を出す）
       enterAppWithSite(saved,"foreman");
-      toast("オフラインのため手元のデータを表示中");
+      toast(offlineFallbackMsg(e));
       return;
     }
   }
