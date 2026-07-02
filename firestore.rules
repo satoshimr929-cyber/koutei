@@ -1,0 +1,89 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ログイン済みか（メール・Google・匿名のいずれか）
+    function signedIn() {
+      return request.auth != null;
+    }
+    // 職長アカウントか（匿名＝作業員ではない）
+    function isForeman() {
+      return signedIn()
+        && request.auth.token.firebase.sign_in_provider != 'anonymous';
+    }
+    // この現場のオーナー（作った職長）か
+    function isOwner(site) {
+      return signedIn()
+        && get(/databases/$(database)/documents/sites/$(site)).data.ownerUid == request.auth.uid;
+    }
+    // この現場に参加登録済みの作業員か
+    function isMember(site) {
+      return signedIn()
+        && exists(/databases/$(database)/documents/sites/$(site)/workers/$(request.auth.uid));
+    }
+
+    // ===== 現場の看板（名前・オーナー・現場コード） =====
+    match /sites/{site} {
+      // 1件取得：ログイン済みなら誰でも可（作業員が現場コードで参加するために必要）
+      allow get: if signedIn();
+      // 一覧取得：自分がオーナーの現場だけ（職長の現場一覧画面用）
+      allow list: if signedIn() && resource.data.ownerUid == request.auth.uid;
+      // 作成：職長のみ。ownerUidは自分自身であること
+      allow create: if isForeman()
+        && request.resource.data.ownerUid == request.auth.uid;
+      // 変更・削除：オーナーのみ（ownerUidの書き換えは不可）
+      allow update: if isOwner(site)
+        && request.resource.data.ownerUid == resource.data.ownerUid;
+      allow delete: if isOwner(site);
+
+      // ===== 本体データ（進捗・部屋・工程など丸ごと） =====
+      match /data/{docId} {
+        // 読み書きはオーナー（職長）のみ。作業員は読み取りのみ可
+        allow read: if isOwner(site) || isMember(site);
+        allow write: if isOwner(site);
+      }
+
+      // ===== 参加した作業員の名簿 =====
+      match /workers/{uid} {
+        // 自分の分は本人が登録・更新できる。オーナーは全員分を読める・消せる
+        allow read: if isOwner(site) || (signedIn() && request.auth.uid == uid);
+        allow create, update: if signedIn() && request.auth.uid == uid;
+        allow delete: if isOwner(site) || (signedIn() && request.auth.uid == uid);
+      }
+
+      // ===== 完了報告（作業員→職長） =====
+      match /reports/{id} {
+        // 送信：この現場の作業員かオーナー。確認・削除：オーナーのみ
+        allow create: if isOwner(site) || isMember(site);
+        allow read, delete: if isOwner(site);
+        allow update: if false;
+      }
+
+      // ===== 作業リスト（職長→作業員） =====
+      match /tasklists/{id} {
+        // 作成・削除：オーナーのみ。読み取り：オーナーと参加作業員
+        allow create, delete: if isOwner(site);
+        allow read: if isOwner(site) || isMember(site);
+        allow update: if false;
+      }
+    }
+
+    // ===== 旧方式のデータ（現場1つ前提。移行の取り込み元として残している） =====
+    // 職長アカウントだけが読める。書き込みは禁止（誤って壊さないように）
+    match /genba/{docId} {
+      allow read: if isForeman();
+      allow write: if false;
+    }
+    match /reports/{id} {
+      allow read, write: if false;
+    }
+    match /tasklists/{id} {
+      allow read, write: if false;
+    }
+
+    // 上記以外の場所は読み書き禁止
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
