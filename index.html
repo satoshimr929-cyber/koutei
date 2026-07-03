@@ -479,6 +479,43 @@
   .bp-filter label.on{border-color:var(--accent);background:#e8f0fe;color:var(--ink)}
   .bp-filter label b{font-weight:800;color:var(--ink)}
   .bp-filter input{width:18px;height:18px;flex:0 0 auto}
+  /* === 工程表（部屋×工程のマトリクス） === */
+  .sch-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;border:1px solid var(--line);border-radius:12px;background:#fff;margin-top:12px}
+  .sch-table{border-collapse:separate;border-spacing:0;font-size:12px}
+  .sch-table th,.sch-table td{padding:0;margin:0}
+  /* ヘッダ行（工程名）：縦スクロール時に上部固定 */
+  .sch-table thead th{position:sticky;top:0;z-index:2;background:#f1f3f4;color:var(--ink-soft);
+    font-weight:700;border-bottom:1px solid var(--line-strong);border-left:1px solid var(--line);
+    height:44px;min-width:46px;padding:4px 6px;white-space:nowrap;text-align:center;vertical-align:middle}
+  /* 左上の角（部屋見出し）：縦横どちらのスクロールでも固定 */
+  .sch-table thead th.sch-corner{position:sticky;left:0;z-index:3;background:#f1f3f4;text-align:left;
+    min-width:74px;max-width:74px;border-left:none}
+  /* 左端列（部屋番号）：横スクロール時に左固定 */
+  .sch-table td.sch-room,.sch-table tbody th.sch-room{position:sticky;left:0;z-index:1;background:#fff;
+    min-width:74px;max-width:74px;font-weight:700;color:var(--ink);text-align:left;padding:6px 8px;
+    border-top:1px solid var(--line);border-right:1px solid var(--line-strong);white-space:nowrap;
+    overflow:hidden;text-overflow:ellipsis}
+  .sch-table tbody tr:first-child td.sch-room{border-top:none}
+  .sch-fhead th{position:sticky;left:0;z-index:1;background:#eef1f4;color:var(--ink-soft);font-weight:800;
+    text-align:left;padding:6px 8px;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+  /* マス目 */
+  .sch-cell{width:46px;height:44px;min-width:46px;border-top:1px solid var(--line);border-left:1px solid var(--line);
+    text-align:center;vertical-align:middle;cursor:pointer;font-weight:800;font-size:15px;line-height:1;user-select:none}
+  .sch-table tbody tr:first-child .sch-cell{border-top:none}
+  .sch-cell.todo{background:#fff;color:transparent}
+  .sch-cell.doing{background:#fef6e7;color:#b06f00}
+  .sch-cell.done{background:#e9f7ee;color:var(--done)}
+  .sch-cell.na{background:#f8f9fa;color:transparent;cursor:default}
+  .sch-cell.over{box-shadow:inset 0 0 0 2px var(--danger)}
+  .sch-cell:active{filter:brightness(.94)}
+  .sch-legend{display:flex;flex-wrap:wrap;gap:12px;margin:12px 2px 0;font-size:12px;color:var(--ink-soft)}
+  .sch-legend span{display:inline-flex;align-items:center;gap:5px}
+  .sch-legend i{width:16px;height:16px;border-radius:4px;border:1px solid var(--line);font-style:normal;
+    display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:800}
+  .sch-legend i.done{background:#e9f7ee;color:var(--done)}
+  .sch-legend i.doing{background:#fef6e7;color:#b06f00}
+  .sch-legend i.todo{background:#fff}
+  .sch-legend i.over{box-shadow:inset 0 0 0 2px var(--danger)}
   /* === ボトムナビ（Google Drive 風） === */
   #dueBtn,#byprocBtn,#shareBtns{display:none !important}
   .botnav{position:fixed;left:0;right:0;bottom:0;z-index:40;display:none;
@@ -690,6 +727,9 @@
   <!-- 工程別の進捗 -->
   <section class="view" id="viewByproc"></section>
 
+  <!-- 工程表（部屋×工程のマトリクス） -->
+  <section class="view" id="viewSchedule"></section>
+
   <!-- 共有（試作） -->
   <section class="view" id="viewShare"></section>
 
@@ -710,6 +750,11 @@
     <div class="dh-app">マンション工事 施工・工程管理</div>
     <div class="dh-site" id="drawerSite">現場名</div>
   </div>
+  <div class="drawer-sec">表示</div>
+  <button type="button" class="drawer-item" id="drawerSchedule">
+    <span class="di-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 3v18"/></svg></span>
+    <span class="di-tx">工程表<span class="di-sub">部屋×工程の一覧表で進捗を確認</span></span>
+  </button>
   <div class="drawer-sec">作業リスト</div>
   <button type="button" class="drawer-item" id="drawerShareMake">
     <span class="di-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"><path d="M12 15V4"/><path d="m8 8 4-4 4 4"/><path d="M5 14v5a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-5"/></svg></span>
@@ -1458,6 +1503,91 @@ let byprocKind="unit", byprocPid=null, byprocFloor="__all__";
 let byprocFilter={todo:true,doing:true,done:true};
 let byprocOpen=new Set();
 let byprocCollapsed=new Set();
+/* =========================================================
+   工程表（部屋×工程のマトリクス表）
+   - db.locations の状態を読むだけ（データ構造は変えない）
+   - マス目タップで pickStatus を開き、未着手/施工中/完了 を変更・保存
+   ========================================================= */
+let scheduleKind="unit"; // "unit"=住戸 / "common"=共用部
+function goSchedule(){ renderSchedule(); showView("schedule"); }
+function renderSchedule(){
+  const v=el("viewSchedule");
+  const kind=scheduleKind;
+  const procs = kind==="common" ? commonProcList() : procList();
+  const wireKind=()=>{
+    v.querySelectorAll(".tab-btn[data-sk]").forEach(b=>b.addEventListener("click",()=>{
+      scheduleKind=b.dataset.sk; renderSchedule(); window.scrollTo(0,0);
+    }));
+  };
+  let html=`<div class="detail-title-row"><div class="detail-title">工程表</div></div>
+    <div class="detail-sub">部屋（縦）×工程（横）の一覧です。マスをタップして 未着手／施工中／完了 を変更できます。横にスクロールできます。</div>
+    <div class="tabs">
+      <button type="button" class="tab-btn ${kind==="unit"?"active":""}" data-sk="unit">住戸</button>
+      <button type="button" class="tab-btn ${kind==="common"?"active":""}" data-sk="common">共用部</button>
+    </div>`;
+  if(procs.length===0){
+    html+=`<div class="empty" style="margin-top:24px">${kind==="common"?"共用部":"住戸"}の工程がまだありません。設定の「工程」で追加してください。</div>`;
+    v.innerHTML=html; wireKind(); return;
+  }
+  const rooms = db.locations.filter(l=> kind==="common" ? l.kind==="common" : l.kind!=="common");
+  if(rooms.length===0){
+    html+=`<div class="empty" style="margin-top:24px">${kind==="common"?"共用部":"住戸"}が登録されていません。設定の「住戸・共用部の登録」で追加してください。</div>`;
+    v.innerHTML=html; wireKind(); return;
+  }
+  // フロアごとにグルーピング
+  let order,groups,labelOf;
+  if(kind==="common"){
+    const cg=commonFloorGroups(rooms);
+    order=cg.order; groups=cg.groups; labelOf=(fl)=>fl||"階未設定";
+  }else{
+    const g=grouped(); order=g.order; groups=g.groups; labelOf=(fl)=>fl;
+  }
+  const today=todayStr();
+  // ヘッダ（工程名）
+  let thead=`<thead><tr><th class="sch-corner">部屋＼工程</th>`;
+  procs.forEach(p=>{ thead+=`<th>${escapeHtml(p.name)}</th>`; });
+  thead+=`</tr></thead>`;
+  // 本体（フロアごとに小見出し行＋部屋行）
+  let tbody=`<tbody>`;
+  const colspan=procs.length+1;
+  order.forEach(fl=>{
+    const locs=groups[fl]||[];
+    if(locs.length===0) return;
+    tbody+=`<tr class="sch-fhead"><th colspan="${colspan}">${escapeHtml(labelOf(fl))}</th></tr>`;
+    locs.forEach(l=>{
+      tbody+=`<tr><td class="sch-room">${escapeHtml(l.name)}</td>`;
+      procs.forEach(p=>{
+        const has=procListFor(l).some(pp=>pp.id===p.id); // その部屋にこの工程があるか
+        if(!has){ tbody+=`<td class="sch-cell na"></td>`; return; }
+        const pr=getProg(l,p.id), st=pr.status||"todo";
+        const over = pr.deadline && pr.deadline<today && st!=="done";
+        const mark = st==="done"?"✓" : st==="doing"?"△" : "";
+        tbody+=`<td class="sch-cell ${st}${over?" over":""}" data-loc="${escapeHtml(l.id)}" data-proc="${escapeHtml(p.id)}">${mark}</td>`;
+      });
+      tbody+=`</tr>`;
+    });
+  });
+  tbody+=`</tbody>`;
+  html+=`<div class="sch-scroll"><table class="sch-table">${thead}${tbody}</table></div>`;
+  html+=`<div class="sch-legend">
+    <span><i class="done">✓</i>完了</span>
+    <span><i class="doing">△</i>施工中</span>
+    <span><i class="todo"></i>未着手</span>
+    <span><i class="todo over"></i>期限切れ</span>
+  </div>`;
+  v.innerHTML=html;
+  wireKind();
+  // マス目タップ → 状態変更
+  v.querySelectorAll(".sch-cell:not(.na)").forEach(cell=>cell.addEventListener("click",()=>{
+    const l=db.locations.find(x=>x.id===cell.dataset.loc);
+    const pid=cell.dataset.proc;
+    if(!l) return;
+    const cur=getProg(l,pid).status||"todo";
+    pickStatus(cur, l.name+" の進捗").then(val=>{
+      if(val && val!==cur){ setProg(l,pid,{status:val}); l.updatedAt=Date.now(); save(); renderSchedule(); }
+    });
+  }));
+}
 function goByproc(){ renderByproc(); showView("byproc"); }
 function renderByproc(){
   const v=el("viewByproc");
@@ -2924,6 +3054,7 @@ function showView(name){
   el("viewSetup").classList.toggle("active",name==="setup");
   el("viewDue").classList.toggle("active",name==="due");
   el("viewByproc").classList.toggle("active",name==="byproc");
+  el("viewSchedule").classList.toggle("active",name==="schedule");
   el("viewShare").classList.toggle("active",name==="share");
   el("viewDoneReview").classList.toggle("active",name==="doneReview");
   el("viewReportList").classList.toggle("active",name==="reportList");
@@ -2958,6 +3089,7 @@ function openDrawer(){ el("drawerSite").textContent=el("siteName").textContent; 
 function closeDrawer(){ el("appDrawer").classList.remove("open"); el("drawerScrim").classList.remove("show"); }
 el("menuBtn").addEventListener("click",openDrawer);
 el("drawerScrim").addEventListener("click",closeDrawer);
+el("drawerSchedule").addEventListener("click",()=>{ closeDrawer(); goSchedule(); });
 el("drawerProc").addEventListener("click",()=>{ closeDrawer(); goSetup("proc"); });
 el("drawerCloudSync").addEventListener("click",()=>{ closeDrawer(); cloudPullManual(); });
 el("drawerReg").addEventListener("click",()=>{ closeDrawer(); goSetup("reg"); });
