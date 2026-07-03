@@ -544,6 +544,8 @@
   /* 長押し→なぞり入力：なぞり中はスクロールを止め、範囲をプレビュー表示 */
   .bar-scroll.dragging{touch-action:none}
   .bar-cell.pv{box-shadow:inset 0 0 0 999px rgba(26,115,232,.22)}
+  /* なぞり中の行は、既存の青帯を隠してプレビュー(pv)だけで伸び縮みを見せる */
+  .bar-scroll.dragging .bar-cell.dragrow .bar-fill{visibility:hidden}
   .bar-hint{font-size:12px;color:var(--ink-soft);margin:12px 2px 0;line-height:1.5}
   .bar-toolbar{display:flex;justify-content:flex-end;margin-top:10px}
   .bar-cfg-btn{display:inline-flex;align-items:center;gap:6px;background:#fff;border:1px solid var(--line-strong,#c8ccd0);
@@ -1804,7 +1806,7 @@ function renderBar(){
   tbody+=`</tbody>`;
   html+=`<div class="bar-scroll"><table class="bar-table">${thead}${tbody}</table></div>`;
   html+=`<div class="bar-toolbar"><button type="button" class="bar-cfg-btn" id="barCfgBtn">⚙ 表示する工程</button></div>`;
-  html+=`<div class="bar-hint">マスを長押ししてから指でなぞると、その範囲が工事期間になります。すでにある帯の上（端）からなぞると、その帯を伸ばせます（前の部分は消えません）。何もない所からなぞると新しく引き直します。消すときは左の項目タップ→「この予定を消す」。今日の列は青、土日はうすい色です。「表示する工程」でこの表に出す工程を選べます。</div>`;
+  html+=`<div class="bar-hint">マスを長押ししてから指でなぞると、その範囲が工事期間になります。すでにある帯は、端をつかんで外へなぞると伸び、内へ戻すと縮みます（反対の端は動きません）。何もない所からなぞると新しく引き直します。丸ごと消すときは左の項目タップ→「この予定を消す」。今日の列は青、土日はうすい色です。「表示する工程」でこの表に出す工程を選べます。</div>`;
   v.innerHTML=html;
   wireKind();
   // 行ラベルタップ → 日付入力
@@ -1832,15 +1834,22 @@ function wireBarDrag(v, plans){
   if(cells.length===0) return;
   let lpTimer=null, dragging=false, dragKey=null, startDate=null, lastDate=null, sx=0, sy=0, hintShown=false;
   const cellAt=(x,y)=>{ const t=document.elementFromPoint(x,y); return t?t.closest(".bar-cell[data-date]"):null; };
-  // なぞりの結果を計算する。なぞり始め(a)が既存の帯の中なら、既存範囲を保って伸ばす（前を消さない）。
-  // 何もない所から始めたら新規の帯として引き直す。
+  // なぞりの結果を計算する（端をつかんで動かすイメージ）。
+  // a=なぞり始めの日付, b=今の指の日付。
+  //  ・a が既存の帯の中：つかんだ側の端を b まで動かす（反対の端は固定）。
+  //    → 外へ動かせば伸び、内へ戻せば縮む（戻した部分が消える）。動かしていなければ変えない。
+  //  ・帯の外／既存なし：新規に a〜b の帯を引く（引き直し）。
   const effRange=(key,a,b)=>{
-    let lo=a<b?a:b, hi=a<b?b:a;
     const ex=plans[key];
     if(ex&&ex.start&&ex.end && a>=ex.start && a<=ex.end){
-      if(ex.start<lo) lo=ex.start;
-      if(ex.end>hi) hi=ex.end;
+      if(a===b) return {lo:ex.start, hi:ex.end}; // 動かしていなければ現状維持
+      const S=dParse(a), es=dParse(ex.start), ee=dParse(ex.end);
+      const distL=dDiffDays(es,S), distR=dDiffDays(S,ee); // つかんだ位置が左右どちらの端に近いか
+      const anchor = (distL<=distR) ? ex.end : ex.start;  // 近い方の端を動かし、反対の端を固定
+      const lo=anchor<b?anchor:b, hi=anchor<b?b:anchor;
+      return {lo,hi};
     }
+    const lo=a<b?a:b, hi=a<b?b:a;
     return {lo,hi};
   };
   const paint=(key,a,b)=>{
@@ -1850,14 +1859,16 @@ function wireBarDrag(v, plans){
       c.classList.toggle("pv", on);
     });
   };
-  const clearPaint=()=>cells.forEach(c=>c.classList.remove("pv"));
+  const clearPaint=()=>cells.forEach(c=>{ c.classList.remove("pv"); c.classList.remove("dragrow"); });
   const cancelPending=()=>{ if(lpTimer){ clearTimeout(lpTimer); lpTimer=null; } };
   const reset=()=>{ dragging=false; dragKey=null; startDate=null; lastDate=null; };
   const enterDrag=()=>{
     lpTimer=null; dragging=true; scroll.classList.add("dragging");
     if(navigator.vibrate){ try{ navigator.vibrate(15); }catch(e){} }
+    // なぞり中の行は既存の帯を隠し、プレビューだけで伸び縮みが見えるようにする
+    cells.forEach(c=>{ if(c.dataset.key===dragKey) c.classList.add("dragrow"); });
     paint(dragKey,startDate,lastDate);
-    if(!hintShown){ hintShown=true; toast("そのまま指をなぞって期間を決めてください"); }
+    if(!hintShown){ hintShown=true; toast("端から外へなぞると伸び、内へ戻すと縮みます"); }
   };
   const commit=()=>{
     scroll.classList.remove("dragging");
