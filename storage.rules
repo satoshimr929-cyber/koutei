@@ -7,17 +7,25 @@ service firebase.storage {
       return request.auth != null
         && firestore.get(/databases/(default)/documents/sites/$(site)).data.ownerUid == request.auth.uid;
     }
+    // この現場に参加登録済みの作業員か（Firestoreのworkers名簿を参照して判定）
+    function isMember(site) {
+      return request.auth != null
+        && firestore.exists(/databases/(default)/documents/sites/$(site)/workers/$(request.auth.uid));
+    }
 
     // ===== 現場の写真 =====
     match /sites/{site}/photos/{file} {
       // 表示：ログイン済み（職長・作業員）なら可
       allow read: if request.auth != null;
-      // アップロード：その現場のオーナーのみ。画像・2MB未満に制限
-      allow create, update: if isOwner(site)
+      // アップロード：その現場のオーナー、またはこの現場の作業員（完了報告への写真添付用）。
+      // 画像・2MB未満に制限
+      allow create, update: if (isOwner(site) || isMember(site))
         && request.resource.size < 2 * 1024 * 1024
         && request.resource.contentType.matches('image/.*');
-      // 削除：その現場のオーナーのみ
-      allow delete: if isOwner(site);
+      // 削除：その現場のオーナー、または自分がアップロードした写真
+      // （アップロード時に記録した uid（by）で判定）
+      allow delete: if isOwner(site)
+        || (request.auth != null && resource.metadata.by == request.auth.uid);
     }
 
     // 上記以外の場所は読み書き禁止

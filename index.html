@@ -728,6 +728,10 @@
     <span class="di-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 3v6h-6"/></svg></span>
     <span class="di-tx">最新のデータを取得<span class="di-sub">他の端末での更新を反映</span></span>
   </button>
+  <button type="button" class="drawer-item auth-only" id="drawerPhotoMigrate">
+    <span class="di-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"><rect x="3" y="5" width="14" height="12" rx="2"/><circle cx="8.5" cy="9.5" r="1.5"/><path d="m3 15 4-4 5 5"/><path d="M18 9v8"/><path d="m15 12 3-3 3 3"/></svg></span>
+    <span class="di-tx">写真をクラウドへ移行<span class="di-sub">端末内の写真を全員で見られるように</span></span>
+  </button>
   <div class="drawer-sec auth-only" id="drawerSecSite">現場</div>
   <button type="button" class="drawer-item auth-only" id="drawerInvite">
     <span class="di-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3zM18 18h3v3h-3z"/></svg></span>
@@ -736,10 +740,6 @@
   <button type="button" class="drawer-item auth-only" id="drawerWorkers">
     <span class="di-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><circle cx="17" cy="9" r="2.6"/><path d="M15.5 14.6a5 5 0 0 1 6 4.9"/></svg></span>
     <span class="di-tx">参加している作業員<span class="di-sub">誰がログインしたかを確認</span></span>
-  </button>
-  <button type="button" class="drawer-item auth-only" id="drawerPhotoMigrate">
-    <span class="di-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"><rect x="3" y="5" width="14" height="12" rx="2"/><circle cx="8.5" cy="9.5" r="1.5"/><path d="m3 15 4-4 5 5"/><path d="M18 9v8"/><path d="m15 12 3-3 3 3"/></svg></span>
-    <span class="di-tx">写真をクラウドへ移行<span class="di-sub">端末内の写真を全員で見られるように</span></span>
   </button>
   <button type="button" class="drawer-item auth-only" id="drawerSiteSwitch">
     <span class="di-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"><path d="m16 3 4 4-4 4"/><path d="M20 7H4"/><path d="m8 21-4-4 4-4"/><path d="M4 17h16"/></svg></span>
@@ -1048,7 +1048,7 @@ function escapeHtml(s){return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":
 function floorNum(name){ const m=String(name).match(/-?\d+/); return m?parseInt(m[0],10):null; }
 
 /* 画面状態 */
-let currentLocId=null, notePhotosBuffer=[], pickerTarget=null;
+let currentLocId=null, notePhotosBuffer=[], pickerTarget=null, sharePhotoLid=null;
 let listFloor="__all__"; // 一覧のフロア絞り込み（"__all__"=全て / "__common__"=共用部 / フロア名）
 let detailCat=null;
 let commonPending=[];
@@ -2727,6 +2727,15 @@ el("filePicker").addEventListener("change", async (ev)=>{
     if(loc){ (loc.photos=loc.photos||[]).push(p); save(); if(currentLocId===locId && el("viewDetail").classList.contains("active")) renderDetail(); }
   }else if(target==="notePhoto"){
     notePhotosBuffer.push(p); refreshNotePhotoGrid();
+  }else if(target==="sharePhoto"){
+    // 作業員の「作業後の写真」：取り込んだ作業リスト（localStorage）に部屋ごとに持たせる
+    const o=loadShareList();
+    if(o){
+      o.rp=o.rp||{};
+      (o.rp[sharePhotoLid]=o.rp[sharePhotoLid]||[]).push(p);
+      saveShareList(o);
+      if(el("viewShare").classList.contains("active")) renderShareList();
+    }
   }
 });
 el("restorePicker").addEventListener("change",(ev)=>{
@@ -3598,30 +3607,47 @@ function renderShareList(){
       html+=`<div class="card"><div style="padding:12px">`;
       html+=`<div style="font-weight:700;margin-bottom:8px">${escapeHtml(roomName)}</div>`;
       html+=renderShareRoomInfo(rooms[rk]);
+      html+=`<div class="sh-info"><div class="sh-info-h">📷 作業後の写真（完了報告と一緒に職長へ届きます）</div>
+        <div class="photo-grid sh-rp-grid" data-lid="${escapeHtml(rk)}"></div></div>`;
       byRoom[rk].forEach(({it,ix})=>{
         html+=`<label class="rem-item ${it.done?"done":""}" style="border:1px solid var(--line);border-radius:9px;padding:10px;margin-bottom:6px">
           <input type="checkbox" class="sh-cb" data-ix="${ix}" ${it.done?"checked":""}><span>${escapeHtml(it.pn)}</span></label>`;
-        if(it.rem&&it.rem.length){
-          html+=`<div style="margin:0 0 8px 26px">`;
-          it.rem.forEach((r,rix)=>{
-            html+=`<label class="rem-item ${r.d?"done":""}" style="padding:6px 2px"><input type="checkbox" class="sh-rcb" data-ix="${ix}" data-rix="${rix}" ${r.d?"checked":""}><span>${escapeHtml(r.t)}</span></label>`;
-          });
-          html+=`</div>`;
-        }
+        html+=`<div style="margin:0 0 8px 26px">`;
+        (it.rem||[]).forEach((r,rix)=>{
+          const addTag=r.add?`<span style="font-size:11px;color:var(--accent-press);border:1px solid currentColor;border-radius:6px;padding:0 5px;margin-left:5px;white-space:nowrap">追加</span>`:"";
+          const delBtn=r.add?`<button type="button" class="sh-rem-del" data-ix="${ix}" data-rix="${rix}" aria-label="この残工事を取り消す" style="flex:0 0 auto;width:26px;height:26px;border:none;background:none;color:var(--ink-soft);font-size:17px;line-height:1">×</button>`:"";
+          html+=`<div style="display:flex;align-items:center;gap:2px">
+            <label class="rem-item ${r.d?"done":""}" style="padding:6px 2px;flex:1"><input type="checkbox" class="sh-rcb" data-ix="${ix}" data-rix="${rix}" ${r.d?"checked":""}><span>${escapeHtml(r.t)}${addTag}</span></label>${delBtn}</div>`;
+        });
+        html+=`<button type="button" class="sh-rem-add" data-ix="${ix}" style="border:none;background:none;color:var(--accent-press);font-size:13px;padding:4px 2px 2px">＋ 残工事を追加</button>`;
+        html+=`</div>`;
       });
       html+=`</div></div>`;
     });
   });
   html+=`<button class="btn btn-primary" id="shareDoneBtn" style="margin-top:14px">📤 完了を職長に返す</button>`;
-  html+=`<button class="btn btn-soft" id="sharePhotoReturnBtn" style="margin-top:8px">📷 写真を返す（準備中）</button>`;
   html+=`<button class="btn-danger-text" id="shareClearBtn" style="margin-top:8px">この取り込みデータを削除</button>`;
   if(worker) html+=workerSwitchHtml();
   v.innerHTML=html;
   v.querySelectorAll(".sh-ph-img").forEach(img=>img.addEventListener("click",()=>openLightbox(img.src)));
+  // 部屋ごとの「作業後の写真」（追加・削除・拡大。職長への完了報告に同梱される）
+  v.querySelectorAll(".sh-rp-grid").forEach(grid=>{
+    const lid=grid.dataset.lid;
+    renderPhotoGrid(grid,(obj.rp&&obj.rp[lid])||[],{
+      onAdd:()=>{ pickerTarget="sharePhoto"; sharePhotoLid=lid; el("filePicker").click(); },
+      onDelete:(i)=>{
+        const o=loadShareList();
+        if(!o||!o.rp||!o.rp[lid]) return;
+        const p=o.rp[lid][i];
+        if(isCloudPhoto(p) && window.__fbDeletePhoto) window.__fbDeletePhoto(p).catch(()=>{});
+        o.rp[lid].splice(i,1);
+        if(o.rp[lid].length===0) delete o.rp[lid];
+        saveShareList(o); renderShareList();
+      }
+    });
+  });
   const dbn=el("shareDoneBtn");
   if(dbn) dbn.addEventListener("click",openShareDone);
-  const pbn=el("sharePhotoReturnBtn");
-  if(pbn) pbn.addEventListener("click",()=>toast("写真の受け渡しはフェーズ2（Firebase）で対応予定です"));
   v.querySelectorAll(".sh-cb").forEach(cb=>cb.addEventListener("change",()=>{
     const o=loadShareList(); const ix=parseInt(cb.dataset.ix,10);
     if(o&&o.items[ix]){ o.items[ix].done=cb.checked; saveShareList(o); renderShareList(); }
@@ -3630,6 +3656,27 @@ function renderShareList(){
     const o=loadShareList(); const ix=parseInt(cb.dataset.ix,10), rix=parseInt(cb.dataset.rix,10);
     if(o&&o.items[ix]&&o.items[ix].rem[rix]){ o.items[ix].rem[rix].d=cb.checked; saveShareList(o); }
     cb.closest(".rem-item").classList.toggle("done",cb.checked);
+  }));
+  // 作業員が残工事を追加する（報告と一緒に職長へ届き、反映すると本体の残工事に加わる）
+  v.querySelectorAll(".sh-rem-add").forEach(b=>b.addEventListener("click",async ()=>{
+    const t=await uiPrompt("残工事の内容（例：巾木の補修）");
+    const text=(t||"").trim();
+    if(!text) return;
+    const o=loadShareList(); const ix=parseInt(b.dataset.ix,10);
+    if(o&&o.items[ix]){
+      (o.items[ix].rem=o.items[ix].rem||[]).push({t:text,d:false,add:true});
+      saveShareList(o); renderShareList();
+    }
+  }));
+  // 自分で追加した残工事の取り消し（職長が作った項目は消せない）
+  v.querySelectorAll(".sh-rem-del").forEach(b=>b.addEventListener("click",async ()=>{
+    const o=loadShareList(); const ix=parseInt(b.dataset.ix,10), rix=parseInt(b.dataset.rix,10);
+    const r=o&&o.items[ix]&&o.items[ix].rem[rix];
+    if(!r||!r.add) return;
+    const ok=await uiConfirm(`「${r.t}」を取り消しますか？`,{okText:"取り消す",okStyle:"danger"});
+    if(!ok) return;
+    o.items[ix].rem.splice(rix,1);
+    saveShareList(o); renderShareList();
   }));
   const clr=el("shareClearBtn");
   if(clr) clr.addEventListener("click",()=>{
@@ -3675,12 +3722,13 @@ function renderReportList(list){
   list.forEach(rep=>{
     const items=Array.isArray(rep.items)?rep.items:[];
     const doneN=items.filter(it=>it.done).length;
+    const phN=Object.values(rep.rp||{}).reduce((s,a)=>s+(a||[]).length,0);
     const w=new Date(rep.at||Date.now());
     const wt=`${w.getFullYear()}/${w.getMonth()+1}/${w.getDate()} ${String(w.getHours()).padStart(2,"0")}:${String(w.getMinutes()).padStart(2,"0")}`;
     html+=`<div class="card" style="padding:14px;margin-bottom:10px">
       <div class="report-card" data-id="${rep.id}" style="cursor:pointer">
         <div style="font-weight:700">${escapeHtml(rep.site||"現場")}${rep.by?`　<span style="font-weight:500;font-size:13px;color:var(--ink-soft)">${escapeHtml(rep.by)} さん</span>`:""}</div>
-        <div class="detail-sub" style="margin-top:4px">受信：${wt}　完了 ${doneN}/${items.length}</div>
+        <div class="detail-sub" style="margin-top:4px">受信：${wt}　完了 ${doneN}/${items.length}${phN?`　📷 ${phN}枚`:""}</div>
       </div>
       <button class="btn-danger-text report-del-btn" data-id="${rep.id}" style="width:auto;padding:6px 0;margin-top:2px;text-align:left">この報告を削除</button>
     </div>`;
@@ -3701,6 +3749,9 @@ function renderReportList(list){
       if(!window.__fbDeleteReport){ toast("クラウド機能が使えません"); return; }
       try{
         await window.__fbDeleteReport(id);
+        // 報告に同梱されていた作業員の写真もクラウドから後始末
+        const rep2=list.find(r=>r.id===id);
+        if(rep2) deleteCloudPhotos([].concat(...Object.values(rep2.rp||{})));
         toast("報告を削除しました");
         openReportList();
       }catch(e2){
@@ -3858,23 +3909,56 @@ function makeDoneCode(){
   if(!o||!Array.isArray(o.items)||o.items.length===0) return null;
   const items=o.items.map(it=>({
     lid:it.lid, ln:it.ln, fl:it.fl, pid:it.pid, pn:it.pn,
-    done:!!it.done, rem:(it.rem||[]).map(r=>({t:r.t,d:!!r.d}))
+    done:!!it.done,
+    rem:(it.rem||[]).map(r=>{ const x={t:r.t,d:!!r.d}; if(r.add) x.add=true; return x; })
   }));
-  return { t:"done", site:o.site||"現場", by:getWorkerName()||"", at:Date.now(), items };
+  // 作業後の写真：クラウドに上がった分（URL）だけを部屋ごとに同梱（Base64は重いので載せない）
+  const rp={};
+  Object.keys(o.rp||{}).forEach(lid=>{
+    const urls=(o.rp[lid]||[]).filter(isCloudPhoto);
+    if(urls.length) rp[lid]=urls;
+  });
+  const code={ t:"done", site:o.site||"現場", by:getWorkerName()||"", at:Date.now(), items };
+  if(Object.keys(rp).length) code.rp=rp;
+  return code;
+}
+/* 端末に残っている（クラウド未送信の）作業後写真を再アップロードする。残った枚数を返す */
+async function retryShareUploads(){
+  if(!window.__fbUploadPhoto) return 0;
+  const o=loadShareList();
+  if(!o||!o.rp) return 0;
+  let pending=0, changed=false;
+  for(const lid of Object.keys(o.rp)){
+    const arr=o.rp[lid];
+    for(let i=0;i<arr.length;i++){
+      if(isCloudPhoto(arr[i])) continue;
+      try{ arr[i]=await window.__fbUploadPhoto(arr[i]); changed=true; }
+      catch(e){ pending++; }
+    }
+  }
+  if(changed) saveShareList(o);
+  return pending;
 }
 let pendingDoneReport=null;
-function openShareDone(){
+async function openShareDone(){
+  const o=loadShareList();
+  const hasLocal=!!(o&&o.rp&&Object.values(o.rp).some(a=>(a||[]).some(p=>!isCloudPhoto(p))));
+  let pending=0;
+  if(hasLocal){ toast("写真を送信中…"); pending=await retryShareUploads(); }
   const code=makeDoneCode();
   if(!code){ toast("返す作業がありません"); return; }
   const doneN=code.items.filter(it=>it.done).length;
+  const phN=Object.values(code.rp||{}).reduce((s,a)=>s+a.length,0);
   pendingDoneReport=code;
-  el("shareDoneInfo").textContent=`完了 ${doneN}件を含む報告です。「職長に送信する」を押すと、クラウド経由で職長に届きます。`;
+  el("shareDoneInfo").textContent=`完了 ${doneN}件${phN?`・写真 ${phN}枚`:""}を含む報告です。「職長に送信する」を押すと、クラウド経由で職長に届きます。`
+    +(pending?`（通信できなかった写真 ${pending}枚は含まれません。電波の良い場所でもう一度お試しください）`:"");
   el("shareDoneModal").classList.add("active");
 }
 let doneReviewData=null;
 let doneReviewCloudId=null;
 let doneReviewSelected=[]; // 反映するかどうか（obj.items のインデックスに対応）
-function openDoneReview(obj, cloudId){ doneReviewData=obj; doneReviewCloudId=cloudId||null; doneReviewSelected=[]; renderDoneReview(); showView("doneReview"); }
+let doneReviewPhotoSel={}; // 作業員の写真を部屋に追加するかどうか（部屋idごと）
+function openDoneReview(obj, cloudId){ doneReviewData=obj; doneReviewCloudId=cloudId||null; doneReviewSelected=[]; doneReviewPhotoSel={}; renderDoneReview(); showView("doneReview"); }
 function renderDoneReview(){
   const v=el("viewDoneReview");
   const obj=doneReviewData;
@@ -3893,7 +3977,8 @@ function renderDoneReview(){
   const w=new Date(obj.at||Date.now());
   const wt=`${w.getFullYear()}/${w.getMonth()+1}/${w.getDate()} ${String(w.getHours()).padStart(2,"0")}:${String(w.getMinutes()).padStart(2,"0")}`;
   html+=`<div class="detail-sub">${escapeHtml(obj.site||"現場")}${obj.by?`　${escapeHtml(obj.by)} さんから`:""}　受信：${wt}</div>`;
-  html+=`<div class="preview">完了にする工程 ${willDone}件　／　対象外 ${skipped}件</div>`;
+  const addN=rows.reduce((s,r)=>s+((r.it.rem||[]).filter(rm=>rm.add).length),0);
+  html+=`<div class="preview">完了にする工程 ${willDone}件　／　対象外 ${skipped}件${addN?`　／　作業員追加の残工事 ${addN}件`:""}</div>`;
   html+=`<div class="preview" style="background:#fff7e6;color:#92500a">チェックを外した工程は本体に反映されません（対象外は元から反映されません）</div>`;
   const groups={}, order=[];
   rows.forEach(r=>{ const f=r.it.fl||"その他"; if(!groups[f]){groups[f]=[];order.push(f);} groups[f].push(r); });
@@ -3904,6 +3989,19 @@ function renderDoneReview(){
     ro.forEach(rk=>{
       html+=`<div class="card"><div style="padding:12px">`;
       html+=`<div style="font-weight:700;margin-bottom:8px">${escapeHtml(byRoom[rk][0].it.ln)}</div>`;
+      const rpArr=(obj.rp&&obj.rp[rk])||[];
+      if(rpArr.length){
+        const locOk=!!db.locations.find(l=>l.id===rk);
+        if(doneReviewPhotoSel[rk]===undefined) doneReviewPhotoSel[rk]=locOk;
+        html+=`<div class="sh-info sh-photo"><div class="sh-info-h">📷 作業員からの写真 ${rpArr.length}枚（タップで拡大）</div>
+          <div class="note-photos">${rpArr.map(u=>`<img class="sh-ph-img" src="${escapeHtml(u)}">`).join("")}</div>`;
+        if(locOk){
+          html+=`<label style="display:flex;align-items:center;gap:6px;padding:6px 0 2px;font-size:13px;color:var(--ink-soft)"><input type="checkbox" class="dr-photo-cb" data-lid="${escapeHtml(rk)}" ${doneReviewPhotoSel[rk]?"checked":""}> この写真を部屋の写真として本体に追加する</label>`;
+        }else{
+          html+=`<div style="margin-top:4px;font-size:13px;color:var(--ink-soft)">この部屋は本体に見つからないため、写真は追加できません</div>`;
+        }
+        html+=`</div>`;
+      }
       byRoom[rk].forEach(r=>{
         let tag;
         if(!r.found) tag=`<span class="due-badge b-todo">対象外</span>`;
@@ -3921,7 +4019,8 @@ function renderDoneReview(){
           r.it.rem.forEach(rm=>{
             const mark=rm.d?`<span style="color:#1a9c4a;font-weight:700">✓</span>`:`<span style="color:#c7c7c7">○</span>`;
             const txtStyle=rm.d?"text-decoration:line-through;color:var(--ink-soft);opacity:.6":"color:var(--ink)";
-            html+=`<div style="display:flex;align-items:center;gap:7px;padding:3px 0;font-size:13px"><span style="flex:0 0 auto">${mark}</span><span style="flex:1;${txtStyle}">${escapeHtml(rm.t)}</span></div>`;
+            const addTag=rm.add?`<span style="flex:0 0 auto;font-size:11px;color:var(--accent-press);border:1px solid currentColor;border-radius:6px;padding:0 5px;white-space:nowrap">作業員が追加</span>`:"";
+            html+=`<div style="display:flex;align-items:center;gap:7px;padding:3px 0;font-size:13px"><span style="flex:0 0 auto">${mark}</span><span style="flex:1;${txtStyle}">${escapeHtml(rm.t)}</span>${addTag}</div>`;
           });
           html+=`</div>`;
         }
@@ -3933,6 +4032,10 @@ function renderDoneReview(){
   html+=`<button class="btn btn-soft" id="doneCancelBtn" style="margin-top:8px">やめる</button>`;
   if(doneReviewCloudId) html+=`<button class="btn-danger-text" id="doneDeleteBtn" style="margin-top:4px">この完了報告を削除</button>`;
   v.innerHTML=html;
+  v.querySelectorAll(".sh-ph-img").forEach(img=>img.addEventListener("click",()=>openLightbox(img.src)));
+  v.querySelectorAll(".dr-photo-cb").forEach(cb=>cb.addEventListener("change",()=>{
+    doneReviewPhotoSel[cb.dataset.lid]=cb.checked;
+  }));
   v.querySelectorAll(".dr-apply-cb").forEach(cb=>cb.addEventListener("change",()=>{
     const ix=parseInt(cb.dataset.ix,10);
     doneReviewSelected[ix]=cb.checked;
@@ -3954,6 +4057,8 @@ function renderDoneReview(){
     try{
       await window.__fbDeleteReport(id);
       doneReviewCloudId=null;
+      // 報告に同梱されていた作業員の写真もクラウドから後始末
+      deleteCloudPhotos([].concat(...Object.values((obj&&obj.rp)||{})));
       toast("報告を削除しました");
       openReportList();
     }catch(e){
@@ -3962,7 +4067,7 @@ function renderDoneReview(){
   });
 }
 function applyDoneReview(obj){
-  let appliedDone=0, skipped=0;
+  let appliedDone=0, skipped=0, addedRem=0;
   obj.items.forEach((it,ix)=>{
     const loc=db.locations.find(l=>l.id===it.lid);
     const p=loc?procListFor(loc).find(pp=>pp.id===it.pid):null;
@@ -3972,19 +4077,40 @@ function applyDoneReview(obj){
     if(Array.isArray(it.rem)&&it.rem.length){
       const cur=(getProg(loc,p.id).remaining||[]).slice();
       let changed=false;
-      it.rem.forEach((r,ix)=>{ if(cur[ix]&&cur[ix].text===r.t&&cur[ix].done!==!!r.d){ cur[ix]={text:cur[ix].text,done:!!r.d}; changed=true; } });
+      it.rem.forEach((r,rix)=>{
+        if(r.add){
+          // 作業員が追加した残工事：本体に同じ内容がなければ加える
+          if(!cur.some(c=>c.text===r.t)){ cur.push({text:r.t,done:!!r.d}); addedRem++; changed=true; }
+        }else if(cur[rix]&&cur[rix].text===r.t&&cur[rix].done!==!!r.d){ cur[rix]={text:cur[rix].text,done:!!r.d}; changed=true; }
+      });
       if(changed){ setProg(loc,p.id,{remaining:cur}); touched=true; }
     }
     if(it.done && getProg(loc,p.id).status!=="done"){ setProg(loc,p.id,{status:"done"}); appliedDone++; touched=true; }
     if(touched) loc.updatedAt=Date.now();
+  });
+  // 作業員からの写真：チェックした部屋は本体に追加、それ以外はクラウドから後始末（容量のムダ防止）
+  let addedPhotos=0;
+  const leftoverPhotos=[];
+  Object.keys(obj.rp||{}).forEach(lid=>{
+    const urls=(obj.rp[lid]||[]).filter(isCloudPhoto);
+    if(!urls.length) return;
+    const loc=db.locations.find(l=>l.id===lid);
+    if(loc && doneReviewPhotoSel[lid]){
+      (loc.photos=loc.photos||[]).push(...urls);
+      loc.updatedAt=Date.now();
+      addedPhotos+=urls.length;
+    }else{
+      leftoverPhotos.push(...urls);
+    }
   });
   save();
   const cloudId=doneReviewCloudId; doneReviewCloudId=null;
   if(cloudId && window.__fbDeleteReport){
     window.__fbDeleteReport(cloudId).catch(()=>{ toast("反映しましたが、クラウド上の報告の削除に失敗しました"); });
   }
+  deleteCloudPhotos(leftoverPhotos);
   showView("list"); renderList();
-  toast(`${appliedDone}件を完了に反映しました${skipped?`（対象外 ${skipped}件）`:""}`);
+  toast(`${appliedDone}件を完了に反映しました${addedRem?`・残工事 ${addedRem}件を追加`:""}${addedPhotos?`・写真 ${addedPhotos}枚を部屋に追加`:""}${skipped?`（対象外 ${skipped}件）`:""}`);
 }
 
 el("shareMakeBtn").addEventListener("click",openShareMake);
@@ -4299,7 +4425,9 @@ if(AUTH_GATE){
     if(!siteCode) throw { code:"app/no-site" };
     const name = Date.now().toString(36) + Math.random().toString(36).slice(2,7) + ".jpg";
     const r = storageRef(fbStorage, "sites/" + siteCode + "/photos/" + name);
-    await uploadString(r, dataUrl, "data_url");
+    // 「誰が上げた写真か」をメタデータに記録（Storageルールが「自分の写真だけ削除可」を判定するのに使う）
+    const user = fbAuth.currentUser;
+    await uploadString(r, dataUrl, "data_url", user ? { customMetadata: { by: user.uid } } : undefined);
     return await getDownloadURL(r);
   };
   // Storage上の写真を削除（URLがStorageのものだけ対象。無ければ何もしない）
