@@ -480,10 +480,11 @@
   .bp-filter label b{font-weight:800;color:var(--ink)}
   .bp-filter input{width:18px;height:18px;flex:0 0 auto}
   /* === 工程表（部屋×工程のマトリクス） === */
-  .sch-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;border:1px solid var(--line);border-radius:12px;background:#fff;margin-top:12px}
+  .sch-scroll{overflow:auto;-webkit-overflow-scrolling:touch;border:1px solid var(--line);border-radius:12px;background:#fff;margin-top:12px;
+    max-height:calc(100vh - 210px);max-height:calc(100dvh - 210px);min-height:200px}
   .sch-table{border-collapse:separate;border-spacing:0;font-size:12px}
   .sch-table th,.sch-table td{padding:0;margin:0}
-  /* ヘッダ行（工程名）：縦スクロール時に上部固定 */
+  /* ヘッダ行（工程名）：表の内部スクロールの上部に固定 */
   .sch-table thead th{position:sticky;top:0;z-index:2;background:#f1f3f4;color:var(--ink-soft);
     font-weight:700;border-bottom:1px solid var(--line-strong);border-left:1px solid var(--line);
     height:44px;min-width:46px;padding:4px 6px;white-space:nowrap;text-align:center;vertical-align:middle}
@@ -518,14 +519,16 @@
   .sch-legend i.over{box-shadow:inset 0 0 0 2px var(--danger)}
 
   /* === バーチャート（フロア×工程の工程予定） === */
-  .bar-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;border:1px solid var(--line);border-radius:12px;background:#fff;margin-top:12px}
+  .bar-scroll{overflow:auto;-webkit-overflow-scrolling:touch;border:1px solid var(--line);border-radius:12px;background:#fff;margin-top:12px;
+    max-height:calc(100vh - 230px);max-height:calc(100dvh - 230px);min-height:200px}
   .bar-table{border-collapse:separate;border-spacing:0;font-size:12px}
   .bar-table th,.bar-table td{padding:0;margin:0;box-sizing:border-box}
   .bar-table thead th{position:sticky;top:0;z-index:2;background:#f1f3f4;color:var(--ink-soft);
     font-weight:600;height:38px;min-width:34px;border-bottom:1px solid var(--line);border-left:1px solid var(--line);text-align:center;white-space:nowrap}
   .bar-table thead th.bar-corner{position:sticky;left:0;z-index:3;background:#f1f3f4;text-align:left;
     min-width:104px;max-width:104px;padding:0 8px;border-left:none;font-weight:700;color:var(--ink)}
-  .bar-table thead th.bar-mhead{color:var(--ink);font-weight:700}
+  /* 日付の列は幅を揃える（2桁の日付でも広がらないように固定幅） */
+  .bar-table thead th.bar-mhead{color:var(--ink);font-weight:700;width:38px;min-width:38px;max-width:38px}
   .bar-table td.bar-label,.bar-table th.bar-label{position:sticky;left:0;z-index:1;background:#fff;
     min-width:104px;max-width:104px;padding:6px 8px;border-top:1px solid var(--line);
     border-right:1px solid var(--line);text-align:left;line-height:1.25;cursor:pointer}
@@ -534,7 +537,7 @@
   .bar-table td.bar-label .bl-range{display:block;font-size:10px;color:var(--ink-soft);margin-top:1px}
   .bar-table td.bar-label .bl-empty{display:block;font-size:10px;color:var(--accent);margin-top:1px}
   .bar-table td.bar-label.bar-newfloor{border-top:2px solid var(--line-strong,#c8ccd0)}
-  .bar-cell{height:40px;min-width:34px;border-top:1px solid var(--line);border-left:1px solid #eef1f4;position:relative}
+  .bar-cell{height:40px;width:38px;min-width:38px;max-width:38px;border-top:1px solid var(--line);border-left:1px solid #eef1f4;position:relative}
   .bar-cell.today{background:#eaf2ff}
   .bar-cell.wknd{background:#faf7f2}
   .bar-cell.bar-newfloor{border-top:2px solid var(--line-strong,#c8ccd0)}
