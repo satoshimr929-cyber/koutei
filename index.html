@@ -862,6 +862,32 @@
   </div>
 </div>
 
+<div class="modal" id="bulkModal">
+  <div class="sheet">
+    <h3>工程をまとめて更新</h3>
+    <div class="field">
+      <label>対象の工程</label>
+      <select id="bulkProc"></select>
+    </div>
+    <div class="field">
+      <label>この工程を…</label>
+      <select id="bulkStatus">
+        <option value="done">完了にする</option>
+        <option value="doing">施工中にする</option>
+        <option value="todo">未着手に戻す</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>対象の部屋（フロアの「全室」で一括選択）</label>
+      <div class="tgt-box" id="bulkTargets"></div>
+    </div>
+    <div class="sheet-actions">
+      <button class="btn btn-soft" id="bulkCancel">キャンセル</button>
+      <button class="btn btn-primary" id="bulkSave">この内容で更新</button>
+    </div>
+  </div>
+</div>
+
 <!-- 作業リストを作るモーダル -->
 <div class="modal" id="shareMakeModal">
   <div class="sheet">
@@ -1856,9 +1882,11 @@ function renderSetup(){
       </div>
     </div>
 
-      <div class="setup-title" style="margin-top:22px">完了期限</div>
+      <div class="setup-title" style="margin-top:22px">まとめて操作</div>
       <div class="card" style="padding:14px;margin-bottom:18px">
-        <button class="btn btn-ghost" id="openDlBtn">完了期限をまとめて登録</button>
+        <button class="btn btn-ghost" id="openBulkBtn">工程をまとめて更新</button>
+        <p class="hint">工程を選び、対象の部屋をまとめて 完了／施工中／未着手 に変更できます。</p>
+        <button class="btn btn-ghost" id="openDlBtn" style="margin-top:10px">完了期限をまとめて登録</button>
         <p class="hint">フロアの「全室」や部屋を選んで、まとめて完了期限を設定できます。</p>
       </div>
     </div>
@@ -2025,6 +2053,7 @@ function renderSetup(){
 
   // 完了期限まとめ登録
   el("openDlBtn").addEventListener("click",openDeadlineModal);
+  el("openBulkBtn").addEventListener("click",openBulkModal);
 
   // 工程（チェック項目）
   const pnc=el("procNewCat");
@@ -2675,6 +2704,43 @@ el("dlSave").addEventListener("click",()=>{
 });
 el("dlCancel").addEventListener("click",closeDeadlineModal);
 el("dlModal").addEventListener("click",e=>{ if(e.target.id==="dlModal") closeDeadlineModal(); });
+
+function openBulkModal(){
+  const unitOpts=procList().map(p=>`<option value="${p.id}">${escapeHtml(p.name)}</option>`).join("");
+  const commonOpts=commonProcList().map(p=>`<option value="${p.id}">${escapeHtml(p.name)}</option>`).join("");
+  let html=`<option value="__all__">（全工程：各部屋の工程すべて）</option>`;
+  if(unitOpts) html+=`<optgroup label="住戸用の工程">${unitOpts}</optgroup>`;
+  if(commonOpts) html+=`<optgroup label="共用部用の工程">${commonOpts}</optgroup>`;
+  el("bulkProc").innerHTML=html;
+  el("bulkStatus").value="done";
+  renderTargets(el("bulkTargets"), null);
+  el("bulkModal").classList.add("active");
+}
+function closeBulkModal(){ el("bulkModal").classList.remove("active"); }
+el("bulkSave").addEventListener("click",async ()=>{
+  const ids=getSelectedTargets(el("bulkTargets"), null);
+  if(ids.length===0){ toast("対象の部屋を選んでください"); return; }
+  const pid=el("bulkProc").value;
+  const status=el("bulkStatus").value;
+  const statusLabel={done:"完了",doing:"施工中",todo:"未着手"}[status]||status;
+  const ok=await uiConfirm(`選んだ部屋の工程を「${statusLabel}」に更新します。よろしいですか？`,{okText:"更新する",okStyle:"primary"});
+  if(!ok) return;
+  // 完了にする場合は残工事のチェックも全部消す
+  const applyOne=(l,p)=>{
+    if(status==="done") setProg(l,p.id,{status:"done",remaining:[]});
+    else setProg(l,p.id,{status:status});
+  };
+  let applied=0;
+  db.locations.forEach(l=>{
+    if(!ids.includes(l.id)) return;
+    if(pid==="__all__"){ procListFor(l).forEach(p=>applyOne(l,p)); applied++; l.updatedAt=Date.now(); }
+    else{ const p=procListFor(l).find(pp=>pp.id===pid); if(p){ applyOne(l,p); applied++; l.updatedAt=Date.now(); } }
+  });
+  save(); closeBulkModal(); renderStructure();
+  toast(applied>0 ? `${applied}部屋の工程を「${statusLabel}」にしました` : "選んだ工程に合う部屋がありませんでした");
+});
+el("bulkCancel").addEventListener("click",closeBulkModal);
+el("bulkModal").addEventListener("click",e=>{ if(e.target.id==="bulkModal") closeBulkModal(); });
 
 /* ===== 写真のクラウド保存（Firebase Storage） =====
    - 追加時：圧縮 → Storageへアップロード → dbにはURLだけを保存（容量を食わない）
