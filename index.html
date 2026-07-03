@@ -541,6 +541,9 @@
   .bar-fill{position:absolute;top:9px;bottom:9px;left:0;right:0;background:var(--accent);opacity:.85}
   .bar-fill.start{border-top-left-radius:6px;border-bottom-left-radius:6px;left:3px}
   .bar-fill.end{border-top-right-radius:6px;border-bottom-right-radius:6px;right:3px}
+  /* 長押し→なぞり入力：なぞり中はスクロールを止め、範囲をプレビュー表示 */
+  .bar-scroll.dragging{touch-action:none}
+  .bar-cell.pv{box-shadow:inset 0 0 0 999px rgba(26,115,232,.22)}
   .bar-hint{font-size:12px;color:var(--ink-soft);margin:12px 2px 0;line-height:1.5}
   .bar-toolbar{display:flex;justify-content:flex-end;margin-top:10px}
   .bar-cfg-btn{display:inline-flex;align-items:center;gap:6px;background:#fff;border:1px solid var(--line-strong,#c8ccd0);
@@ -1719,7 +1722,7 @@ function renderBar(){
     if(cfg) cfg.addEventListener("click",()=>openBarConfig(kind, allProcs));
   };
   let html=`<div class="detail-title-row"><div class="detail-title">バーチャート</div></div>
-    <div class="detail-sub">フロア×工程の予定を横棒で表示します。左の項目名をタップして開始日・終了日を入れると帯が引かれます。横にスクロールできます。</div>
+    <div class="detail-sub">フロア×工程の予定を横棒で表示します。カレンダーのマスを長押ししてから指でなぞると、その範囲を工事期間にできます。左の項目名タップでも開始日・終了日を入力できます。横にスクロールできます。</div>
     <div class="tabs">
       <button type="button" class="tab-btn ${kind==="unit"?"active":""}" data-rk="unit">住戸</button>
       <button type="button" class="tab-btn ${kind==="common"?"active":""}" data-rk="common">共用部</button>
@@ -1793,7 +1796,7 @@ function renderBar(){
           let fc="bar-fill"; if(dFmt(d)===dFmt(s)) fc+=" start"; if(dFmt(d)===dFmt(e)) fc+=" end";
           fill=`<div class="${fc}"></div>`;
         }
-        tbody+=`<td class="${cls}">${fill}</td>`;
+        tbody+=`<td class="${cls}" data-key="${escapeHtml(key)}" data-date="${dFmt(d)}">${fill}</td>`;
       });
       tbody+=`</tr>`;
     });
@@ -1801,7 +1804,7 @@ function renderBar(){
   tbody+=`</tbody>`;
   html+=`<div class="bar-scroll"><table class="bar-table">${thead}${tbody}</table></div>`;
   html+=`<div class="bar-toolbar"><button type="button" class="bar-cfg-btn" id="barCfgBtn">⚙ 表示する工程</button></div>`;
-  html+=`<div class="bar-hint">左の項目をタップすると、開始日・終了日を設定できます。今日の列は青、土日はうすい色です。「表示する工程」でこの表に出す工程を選べます。</div>`;
+  html+=`<div class="bar-hint">マスを長押ししてから指でなぞると、その範囲が工事期間になります（何度でも引き直せます）。左の項目タップで日付を直接入力・削除もできます。今日の列は青、土日はうすい色です。「表示する工程」でこの表に出す工程を選べます。</div>`;
   v.innerHTML=html;
   wireKind();
   // 行ラベルタップ → 日付入力
@@ -1816,6 +1819,79 @@ function renderBar(){
     else{ plans[key]={start:res.start,end:res.end}; }
     save(); renderBar();
   }));
+  wireBarDrag(v, plans);
+}
+/* 長押ししてからなぞって工事期間を引く（横スクロールと区別する）
+   - マスを約0.3秒長押しで「なぞりモード」に入る（それまでに指が動いたらスクロール優先）
+   - なぞった範囲（同じ行内）を仮の帯としてプレビュー → 指を離すと保存
+   - 前後どちらからなぞっても、小さい方をstart・大きい方をendにする */
+function wireBarDrag(v, plans){
+  const scroll=v.querySelector(".bar-scroll");
+  if(!scroll) return;
+  const cells=[...scroll.querySelectorAll(".bar-cell[data-date]")];
+  if(cells.length===0) return;
+  let lpTimer=null, dragging=false, dragKey=null, startDate=null, lastDate=null, sx=0, sy=0, hintShown=false;
+  const cellAt=(x,y)=>{ const t=document.elementFromPoint(x,y); return t?t.closest(".bar-cell[data-date]"):null; };
+  const paint=(key,a,b)=>{
+    const lo=a<b?a:b, hi=a<b?b:a;
+    cells.forEach(c=>{
+      const on = c.dataset.key===key && c.dataset.date>=lo && c.dataset.date<=hi;
+      c.classList.toggle("pv", on);
+    });
+  };
+  const clearPaint=()=>cells.forEach(c=>c.classList.remove("pv"));
+  const cancelPending=()=>{ if(lpTimer){ clearTimeout(lpTimer); lpTimer=null; } };
+  const reset=()=>{ dragging=false; dragKey=null; startDate=null; lastDate=null; };
+  const enterDrag=()=>{
+    lpTimer=null; dragging=true; scroll.classList.add("dragging");
+    if(navigator.vibrate){ try{ navigator.vibrate(15); }catch(e){} }
+    paint(dragKey,startDate,lastDate);
+    if(!hintShown){ hintShown=true; toast("そのまま指をなぞって期間を決めてください"); }
+  };
+  const commit=()=>{
+    scroll.classList.remove("dragging");
+    if(dragKey && startDate && lastDate){
+      const lo=startDate<lastDate?startDate:lastDate, hi=startDate<lastDate?lastDate:startDate;
+      plans[dragKey]={start:lo,end:hi};
+      save(); renderBar(); // 再描画で帯が本描画され、リスナーも張り直される
+      return true;
+    }
+    return false;
+  };
+  const onStart=(x,y)=>{
+    const cell=cellAt(x,y);
+    if(!cell) return; // ラベル等の上ではドラッグを始めない（従来のタップを優先）
+    sx=x; sy=y; dragKey=cell.dataset.key; startDate=cell.dataset.date; lastDate=startDate;
+    cancelPending();
+    lpTimer=setTimeout(enterDrag, 300);
+  };
+  const onMove=(x,y,e)=>{
+    if(!dragging){
+      // 長押し待ちの間に動いたら＝スクロール意図。長押しを中止してスクロールに任せる
+      if(lpTimer && (Math.abs(x-sx)>10 || Math.abs(y-sy)>10)){ cancelPending(); reset(); }
+      return;
+    }
+    if(e&&e.cancelable) e.preventDefault(); // スクロールを止めてなぞり優先
+    const cell=cellAt(x,y);
+    if(cell && cell.dataset.key===dragKey){ lastDate=cell.dataset.date; paint(dragKey,startDate,lastDate); }
+  };
+  const onEnd=(doCommit)=>{
+    cancelPending();
+    if(dragging){ if(doCommit){ if(commit()) return; } scroll.classList.remove("dragging"); clearPaint(); }
+    reset();
+  };
+  // タッチ（実機）
+  scroll.addEventListener("touchstart",(e)=>{ if(e.touches.length!==1){ cancelPending(); reset(); return; } const t=e.touches[0]; onStart(t.clientX,t.clientY); },{passive:true});
+  scroll.addEventListener("touchmove",(e)=>{ const t=e.touches[0]; if(t) onMove(t.clientX,t.clientY,e); },{passive:false});
+  scroll.addEventListener("touchend",()=>onEnd(true),{passive:true});
+  scroll.addEventListener("touchcancel",()=>onEnd(false),{passive:true});
+  // マウス（PC確認用。タッチ環境では touch 側が先に処理するので二重発火しない）
+  // ※scroll要素はrenderBarのたびに作り直されるので、window等には張らずリークを避ける
+  let mouseDown=false;
+  scroll.addEventListener("mousedown",(e)=>{ mouseDown=true; onStart(e.clientX,e.clientY); });
+  scroll.addEventListener("mousemove",(e)=>{ if(mouseDown) onMove(e.clientX,e.clientY,e); });
+  scroll.addEventListener("mouseup",()=>{ if(mouseDown){ mouseDown=false; onEnd(true); } });
+  scroll.addEventListener("mouseleave",()=>{ if(mouseDown){ mouseDown=false; onEnd(false); } });
 }
 
 function goByproc(){ renderByproc(); showView("byproc"); }
