@@ -3589,11 +3589,12 @@ function renderShareList(){
     if(worker) html+=workerSwitchHtml();
     v.innerHTML=html; bindWorkerShareControls(); return;
   }
-  const total=obj.items.length, done=obj.items.filter(it=>it.done).length;
+  const total=obj.items.length, done=obj.items.filter(it=>it.done).length,
+        doing=obj.items.filter(it=>!it.done&&(it.st==="doing")).length;
   const w=new Date(obj.at||Date.now());
   const wt=`${w.getFullYear()}/${w.getMonth()+1}/${w.getDate()} ${String(w.getHours()).padStart(2,"0")}:${String(w.getMinutes()).padStart(2,"0")}`;
   html+=`<div class="detail-sub">${escapeHtml(obj.site||"現場")}　取り込み：${wt}</div>`;
-  html+=`<div class="preview">完了 ${done} / ${total}</div>`;
+  html+=`<div class="preview">完了 ${done}${doing?`・施工中 ${doing}`:""} / ${total}</div>`;
   html+=`<div class="preview" style="background:#fff7e6;color:#92500a">※これは試作です。チェックしても本体アプリの進捗には反映されません。</div>`;
   const rooms=obj.rooms||{};
   const groups={}, order=[];
@@ -3610,8 +3611,12 @@ function renderShareList(){
       html+=`<div class="sh-info"><div class="sh-info-h">📷 作業後の写真（完了報告と一緒に職長へ届きます）</div>
         <div class="photo-grid sh-rp-grid" data-lid="${escapeHtml(rk)}"></div></div>`;
       byRoom[rk].forEach(({it,ix})=>{
-        html+=`<label class="rem-item ${it.done?"done":""}" style="border:1px solid var(--line);border-radius:9px;padding:10px;margin-bottom:6px">
-          <input type="checkbox" class="sh-cb" data-ix="${ix}" ${it.done?"checked":""}><span>${escapeHtml(it.pn)}</span></label>`;
+        const st=it.st||(it.done?"done":"todo");
+        const stBadge=st==="done"?`<span class="due-badge b-done">完了</span>`
+          :st==="doing"?`<span class="due-badge b-doing">施工中</span>`
+          :`<span class="due-badge b-todo">未着手</span>`;
+        html+=`<button type="button" class="sh-st-btn ${st==="done"?"rem-item done":"rem-item"}" data-ix="${ix}" style="display:flex;align-items:center;gap:8px;width:100%;border:1px solid var(--line);border-radius:9px;padding:10px;margin-bottom:6px;background:#fff;font:inherit">
+          <span style="flex:1;text-align:left">${escapeHtml(it.pn)}</span>${stBadge}</button>`;
         html+=`<div style="margin:0 0 8px 26px">`;
         (it.rem||[]).forEach((r,rix)=>{
           const addTag=r.add?`<span style="font-size:11px;color:var(--accent-press);border:1px solid currentColor;border-radius:6px;padding:0 5px;margin-left:5px;white-space:nowrap">追加</span>`:"";
@@ -3648,9 +3653,16 @@ function renderShareList(){
   });
   const dbn=el("shareDoneBtn");
   if(dbn) dbn.addEventListener("click",openShareDone);
-  v.querySelectorAll(".sh-cb").forEach(cb=>cb.addEventListener("change",()=>{
-    const o=loadShareList(); const ix=parseInt(cb.dataset.ix,10);
-    if(o&&o.items[ix]){ o.items[ix].done=cb.checked; saveShareList(o); renderShareList(); }
+  // 工程をタップ → 未着手/施工中/完了 を選ぶ（本体と同じ選択画面）
+  v.querySelectorAll(".sh-st-btn").forEach(btn=>btn.addEventListener("click",async ()=>{
+    const o=loadShareList(); const ix=parseInt(btn.dataset.ix,10);
+    if(!o||!o.items[ix]) return;
+    const it=o.items[ix];
+    const cur=it.st||(it.done?"done":"todo");
+    const picked=await pickStatus(cur, it.pn);
+    if(!picked) return;
+    it.st=picked; it.done=(picked==="done");
+    saveShareList(o); renderShareList();
   }));
   v.querySelectorAll(".sh-rcb").forEach(cb=>cb.addEventListener("change",()=>{
     const o=loadShareList(); const ix=parseInt(cb.dataset.ix,10), rix=parseInt(cb.dataset.rix,10);
@@ -3907,11 +3919,16 @@ function applyMode(){
 function makeDoneCode(){
   const o=loadShareList();
   if(!o||!Array.isArray(o.items)||o.items.length===0) return null;
-  const items=o.items.map(it=>({
-    lid:it.lid, ln:it.ln, fl:it.fl, pid:it.pid, pn:it.pn,
-    done:!!it.done,
-    rem:(it.rem||[]).map(r=>{ const x={t:r.t,d:!!r.d}; if(r.add) x.add=true; return x; })
-  }));
+  const items=o.items.map(it=>{
+    const x={
+      lid:it.lid, ln:it.ln, fl:it.fl, pid:it.pid, pn:it.pn,
+      done:!!it.done,
+      rem:(it.rem||[]).map(r=>{ const y={t:r.t,d:!!r.d}; if(r.add) y.add=true; return y; })
+    };
+    // 状態の報告は「施工中」「完了」だけ載せる（未着手＝報告なし扱い）
+    if(it.st==="doing"||it.st==="done"||it.done) x.st=it.done?"done":it.st;
+    return x;
+  });
   // 作業後の写真：クラウドに上がった分（URL）だけを部屋ごとに同梱（Base64は重いので載せない）
   const rp={};
   Object.keys(o.rp||{}).forEach(lid=>{
@@ -3948,9 +3965,10 @@ async function openShareDone(){
   const code=makeDoneCode();
   if(!code){ toast("返す作業がありません"); return; }
   const doneN=code.items.filter(it=>it.done).length;
+  const doingN=code.items.filter(it=>!it.done&&it.st==="doing").length;
   const phN=Object.values(code.rp||{}).reduce((s,a)=>s+a.length,0);
   pendingDoneReport=code;
-  el("shareDoneInfo").textContent=`完了 ${doneN}件${phN?`・写真 ${phN}枚`:""}を含む報告です。「職長に送信する」を押すと、クラウド経由で職長に届きます。`
+  el("shareDoneInfo").textContent=`完了 ${doneN}件${doingN?`・施工中 ${doingN}件`:""}${phN?`・写真 ${phN}枚`:""}を含む報告です。「職長に送信する」を押すと、クラウド経由で職長に届きます。`
     +(pending?`（通信できなかった写真 ${pending}枚は含まれません。電波の良い場所でもう一度お試しください）`:"");
   el("shareDoneModal").classList.add("active");
 }
@@ -3964,22 +3982,35 @@ function renderDoneReview(){
   const obj=doneReviewData;
   let html=`<div class="detail-title-row"><div class="detail-title">完了報告の反映</div></div>`;
   if(!obj||!Array.isArray(obj.items)){ html+=`<div class="empty" style="margin-top:30px">データがありません。</div>`; v.innerHTML=html; return; }
-  let willDone=0, skipped=0;
+  let willDone=0, willDoing=0, skipped=0;
   const rows=obj.items.map((it,ix)=>{
     const loc=db.locations.find(l=>l.id===it.lid);
     const p=loc?procListFor(loc).find(pp=>pp.id===it.pid):null;
     const found=!!(loc&&p);
-    const apply=found && it.done && getProg(loc,it.pid).status!=="done";
-    if(doneReviewSelected[ix]===undefined) doneReviewSelected[ix]=found; // 初期値：見つかった項目は反映する
-    if(!found) skipped++; else if(it.done && apply && doneReviewSelected[ix]) willDone++;
-    return {it,ix,loc,p,found,apply};
+    const rst=it.st||(it.done?"done":null); // 作業員が報告した状態（未着手のままなら null）
+    const cur=found?getProg(loc,it.pid).status:null;
+    const stChange=!!(found && rst && rst!==cur);
+    // 残工事に変化（作業員の追加・チェックの変化）があるか
+    let remChange=false;
+    if(found && Array.isArray(it.rem) && it.rem.length){
+      const bodyRem=getProg(loc,it.pid).remaining||[];
+      it.rem.forEach((r,rix)=>{
+        if(r.add){ if(!bodyRem.some(c=>c.text===r.t)) remChange=true; }
+        else if(bodyRem[rix]&&bodyRem[rix].text===r.t&&bodyRem[rix].done!==!!r.d) remChange=true;
+      });
+    }
+    // 初期値：変化のある工程（完了・施工中の報告や残工事の変化）だけチェックを付ける
+    if(doneReviewSelected[ix]===undefined) doneReviewSelected[ix]=found&&(stChange||remChange);
+    if(!found) skipped++;
+    else if(doneReviewSelected[ix]&&stChange){ if(rst==="done") willDone++; else if(rst==="doing") willDoing++; }
+    return {it,ix,loc,p,found,rst,stChange,remChange};
   });
   const w=new Date(obj.at||Date.now());
   const wt=`${w.getFullYear()}/${w.getMonth()+1}/${w.getDate()} ${String(w.getHours()).padStart(2,"0")}:${String(w.getMinutes()).padStart(2,"0")}`;
   html+=`<div class="detail-sub">${escapeHtml(obj.site||"現場")}${obj.by?`　${escapeHtml(obj.by)} さんから`:""}　受信：${wt}</div>`;
   const addN=rows.reduce((s,r)=>s+((r.it.rem||[]).filter(rm=>rm.add).length),0);
-  html+=`<div class="preview">完了にする工程 ${willDone}件　／　対象外 ${skipped}件${addN?`　／　作業員追加の残工事 ${addN}件`:""}</div>`;
-  html+=`<div class="preview" style="background:#fff7e6;color:#92500a">チェックを外した工程は本体に反映されません（対象外は元から反映されません）</div>`;
+  html+=`<div class="preview">完了にする ${willDone}件${willDoing?`　／　施工中にする ${willDoing}件`:""}　／　対象外 ${skipped}件${addN?`　／　作業員追加の残工事 ${addN}件`:""}</div>`;
+  html+=`<div class="preview" style="background:#fff7e6;color:#92500a">左のチェックが付いた工程だけ本体に反映されます</div>`;
   const groups={}, order=[];
   rows.forEach(r=>{ const f=r.it.fl||"その他"; if(!groups[f]){groups[f]=[];order.push(f);} groups[f].push(r); });
   order.forEach(f=>{
@@ -4005,17 +4036,21 @@ function renderDoneReview(){
       byRoom[rk].forEach(r=>{
         let tag;
         if(!r.found) tag=`<span class="due-badge b-todo">対象外</span>`;
-        else if(r.it.done && r.apply) tag=`<span class="due-badge b-done">完了にする</span>`;
-        else if(r.it.done && !r.apply) tag=`<span class="due-badge b-done">既に完了</span>`;
-        else tag=`<span class="due-badge b-doing">未完了のまま</span>`;
+        else if(r.rst==="done") tag=r.stChange?`<span class="due-badge b-done">完了にする</span>`:`<span class="due-badge b-done">既に完了</span>`;
+        else if(r.rst==="doing") tag=r.stChange?`<span class="due-badge b-doing">施工中にする</span>`:`<span class="due-badge b-doing">既に施工中</span>`;
+        else tag=`<span class="due-badge b-todo">報告なし</span>`;
         const sel=r.found && doneReviewSelected[r.ix];
-        const dim=r.found && !doneReviewSelected[r.ix];
-        html+=`<div style="display:flex;align-items:center;gap:8px;padding:4px 0;${dim?"opacity:.45":""}"><span style="flex:1">${escapeHtml(r.it.pn)}</span>${tag}</div>`;
+        const dim=r.found && !sel;
         if(r.found){
-          html+=`<label style="display:flex;align-items:center;gap:6px;padding:2px 0 6px;font-size:13px;color:var(--ink-soft)"><input type="checkbox" class="dr-apply-cb" data-ix="${r.ix}" ${sel?"checked":""}> この工程の内容を本体に反映する</label>`;
+          // チェック＝この工程を本体に反映する（工程名の左に配置）
+          html+=`<label style="display:flex;align-items:center;gap:9px;padding:7px 0;${dim?"opacity:.5":""}">
+            <input type="checkbox" class="dr-apply-cb" data-ix="${r.ix}" ${sel?"checked":""} style="flex:0 0 auto;width:19px;height:19px">
+            <span style="flex:1;font-weight:600">${escapeHtml(r.it.pn)}</span>${tag}</label>`;
+        }else{
+          html+=`<div style="display:flex;align-items:center;gap:9px;padding:7px 0;opacity:.6"><span style="flex:1">${escapeHtml(r.it.pn)}</span>${tag}</div>`;
         }
         if(r.it.rem && r.it.rem.length){
-          html+=`<div style="margin:0 0 8px 4px;border-left:2px solid var(--line);padding-left:10px;${dim?"opacity:.45":""}">`;
+          html+=`<div style="margin:0 0 8px 28px;border-left:2px solid var(--line);padding-left:10px;${dim?"opacity:.45":""}">`;
           r.it.rem.forEach(rm=>{
             const mark=rm.d?`<span style="color:#1a9c4a;font-weight:700">✓</span>`:`<span style="color:#c7c7c7">○</span>`;
             const txtStyle=rm.d?"text-decoration:line-through;color:var(--ink-soft);opacity:.6":"color:var(--ink)";
@@ -4028,7 +4063,7 @@ function renderDoneReview(){
       html+=`</div></div>`;
     });
   });
-  html+=`<button class="btn btn-primary" id="doneApplyBtn" style="margin-top:14px">本体に反映する（${willDone}件を完了）</button>`;
+  html+=`<button class="btn btn-primary" id="doneApplyBtn" style="margin-top:14px">本体に反映する（完了 ${willDone}件${willDoing?`・施工中 ${willDoing}件`:""}）</button>`;
   html+=`<button class="btn btn-soft" id="doneCancelBtn" style="margin-top:8px">やめる</button>`;
   if(doneReviewCloudId) html+=`<button class="btn-danger-text" id="doneDeleteBtn" style="margin-top:4px">この完了報告を削除</button>`;
   v.innerHTML=html;
@@ -4042,7 +4077,7 @@ function renderDoneReview(){
     renderDoneReview();
   }));
   el("doneApplyBtn").addEventListener("click",()=>{
-    uiConfirm(`${willDone}件を完了にして本体に反映します。よろしいですか？`,{okText:"反映する",okStyle:"primary"}).then(ok=>{ if(ok) applyDoneReview(obj); });
+    uiConfirm(`チェックの付いた工程を本体に反映します。よろしいですか？`,{okText:"反映する",okStyle:"primary"}).then(ok=>{ if(ok) applyDoneReview(obj); });
   });
   el("doneCancelBtn").addEventListener("click",()=>{
     if(doneReviewCloudId){ doneReviewCloudId=null; openReportList(); }
@@ -4067,7 +4102,7 @@ function renderDoneReview(){
   });
 }
 function applyDoneReview(obj){
-  let appliedDone=0, skipped=0, addedRem=0;
+  let appliedDone=0, appliedDoing=0, skipped=0, addedRem=0;
   obj.items.forEach((it,ix)=>{
     const loc=db.locations.find(l=>l.id===it.lid);
     const p=loc?procListFor(loc).find(pp=>pp.id===it.pid):null;
@@ -4085,7 +4120,13 @@ function applyDoneReview(obj){
       });
       if(changed){ setProg(loc,p.id,{remaining:cur}); touched=true; }
     }
-    if(it.done && getProg(loc,p.id).status!=="done"){ setProg(loc,p.id,{status:"done"}); appliedDone++; touched=true; }
+    // 状態の反映（完了・施工中。作業員が未着手のままなら状態は触らない）
+    const rst=it.st||(it.done?"done":null);
+    if(rst && getProg(loc,p.id).status!==rst){
+      setProg(loc,p.id,{status:rst});
+      if(rst==="done") appliedDone++; else if(rst==="doing") appliedDoing++;
+      touched=true;
+    }
     if(touched) loc.updatedAt=Date.now();
   });
   // 作業員からの写真：チェックした部屋は本体に追加、それ以外はクラウドから後始末（容量のムダ防止）
@@ -4110,7 +4151,7 @@ function applyDoneReview(obj){
   }
   deleteCloudPhotos(leftoverPhotos);
   showView("list"); renderList();
-  toast(`${appliedDone}件を完了に反映しました${addedRem?`・残工事 ${addedRem}件を追加`:""}${addedPhotos?`・写真 ${addedPhotos}枚を部屋に追加`:""}${skipped?`（対象外 ${skipped}件）`:""}`);
+  toast(`完了 ${appliedDone}件${appliedDoing?`・施工中 ${appliedDoing}件`:""}を反映しました${addedRem?`・残工事 ${addedRem}件を追加`:""}${addedPhotos?`・写真 ${addedPhotos}枚を部屋に追加`:""}${skipped?`（対象外 ${skipped}件）`:""}`);
 }
 
 el("shareMakeBtn").addEventListener("click",openShareMake);
