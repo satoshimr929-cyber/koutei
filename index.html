@@ -572,12 +572,14 @@
   .bar-mini-btn:active{background:var(--accent-press)}
   /* バーチャートの全画面表示：画面いっぱいに広げる（横持ちで見やすい） */
   #viewBar.bar-full{position:fixed;inset:0;z-index:60;background:var(--panel);margin:0;
-    padding:calc(env(safe-area-inset-top) + 6px) 10px calc(env(safe-area-inset-bottom) + 6px);
+    padding:calc(env(safe-area-inset-top) + 4px) 6px calc(env(safe-area-inset-bottom) + 4px);
     display:flex;flex-direction:column;overflow:hidden}
-  #viewBar.bar-full .detail-title-row{flex:0 0 auto;margin:0 0 6px}
-  #viewBar.bar-full .tabs{flex:0 0 auto;margin:0 0 6px}
+  #viewBar.bar-full .bar-full-bar{flex:0 0 auto;display:flex;justify-content:flex-end;margin:0 0 4px}
   #viewBar.bar-full .bar-scroll{flex:1 1 auto;max-height:none;min-height:0;margin-top:0}
-  #viewBar.bar-full .bar-toolbar{flex:0 0 auto;margin-top:6px}
+  /* 全画面の「✕ 閉じる」ボタン：小さめ */
+  .bar-full-close{display:inline-flex;align-items:center;gap:4px;background:var(--accent);border:none;color:#fff;
+    font-weight:700;font-size:12px;border-radius:16px;padding:5px 12px;cursor:pointer}
+  .bar-full-close:active{background:var(--accent-press)}
   /* === ボトムナビ（Google Drive 風） === */
   #dueBtn,#byprocBtn,#shareBtns{display:none !important}
   .botnav{position:fixed;left:0;right:0;bottom:0;z-index:40;display:none;
@@ -1749,15 +1751,21 @@ function renderBar(){
     if(cfg) cfg.addEventListener("click",()=>openBarConfig(kind, allProcs));
   };
   const full=barFull;
-  let html=`<div class="detail-title-row" style="display:flex;align-items:center;justify-content:space-between;gap:8px">
-      <div class="detail-title">バーチャート</div>
-      <button type="button" class="bar-mini-btn" id="barFullBtn">${full?"✕ 全画面を閉じる":"⛶ 全画面"}</button>
-    </div>`;
-  if(!full) html+=`<div class="detail-sub">フロア×工程の予定を横棒で表示します。カレンダーのマスを長押ししてから指でなぞると、その範囲を工事期間にできます。左の項目名タップでも開始日・終了日を入力できます。横にスクロールできます。<b>横向きにして「⛶ 全画面」にすると見やすくなります。</b></div>`;
-  html+=`<div class="tabs">
-      <button type="button" class="tab-btn ${kind==="unit"?"active":""}" data-rk="unit">住戸</button>
-      <button type="button" class="tab-btn ${kind==="common"?"active":""}" data-rk="common">共用部</button>
-    </div>`;
+  let html="";
+  if(full){
+    // 全画面：表を最大化。タイトル・タブ・「表示する工程」は隠し、閉じるボタンだけ小さく右上に
+    html+=`<div class="bar-full-bar"><button type="button" class="bar-full-close" id="barFullBtn">✕ 閉じる</button></div>`;
+  }else{
+    html+=`<div class="detail-title-row" style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+        <div class="detail-title">バーチャート</div>
+        <button type="button" class="bar-mini-btn" id="barFullBtn">⛶ 全画面</button>
+      </div>`;
+    html+=`<div class="detail-sub">フロア×工程の予定を横棒で表示します。カレンダーのマスを長押ししてから指でなぞると、その範囲を工事期間にできます。左の項目名タップでも開始日・終了日を入力できます。横にスクロールできます。<b>横向きにして「⛶ 全画面」にすると見やすくなります。</b></div>`;
+    html+=`<div class="tabs">
+        <button type="button" class="tab-btn ${kind==="unit"?"active":""}" data-rk="unit">住戸</button>
+        <button type="button" class="tab-btn ${kind==="common"?"active":""}" data-rk="common">共用部</button>
+      </div>`;
+  }
   if(allProcs.length===0){
     html+=`<div class="empty" style="margin-top:24px">${kind==="common"?"共用部":"住戸"}の工程がまだありません。設定の「工程」で追加してください。</div>`;
     v.innerHTML=html; wireKind(); return;
@@ -1836,8 +1844,10 @@ function renderBar(){
   });
   tbody+=`</tbody>`;
   html+=`<div class="bar-scroll"><table class="bar-table">${thead}${tbody}</table></div>`;
-  html+=`<div class="bar-toolbar"><button type="button" class="bar-cfg-btn" id="barCfgBtn">⚙ 表示する工程</button></div>`;
-  if(!full) html+=`<div class="bar-hint">マスを長押ししてから指でなぞると、その範囲が工事期間になります。すでにある帯は、端をつかんで外へなぞると伸び、内へ戻すと縮みます（反対の端は動きません）。何もない所からなぞると新しく引き直します。丸ごと消すときは左の項目タップ→「この予定を消す」。今日の列は青、土日はうすい色です。「表示する工程」でこの表に出す工程を選べます。</div>`;
+  if(!full){
+    html+=`<div class="bar-toolbar"><button type="button" class="bar-cfg-btn" id="barCfgBtn">⚙ 表示する工程</button></div>`;
+    html+=`<div class="bar-hint">マスを長押ししてから指でなぞると、その範囲が工事期間になります。すでにある帯は、端をつかんで外へなぞると伸び、内へ戻すと縮みます（反対の端は動きません）。何もない所からなぞると新しく引き直します。丸ごと消すときは左の項目タップ→「この予定を消す」。今日の列は青、土日はうすい色です。「表示する工程」でこの表に出す工程を選べます。</div>`;
+  }
   v.innerHTML=html;
   v.classList.toggle("bar-full", full); // 全画面表示のオン/オフ
   const fb=el("barFullBtn");
