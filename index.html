@@ -1792,13 +1792,22 @@ function renderBar(){
   }
   const procs = barVisibleProcs(kind, allProcs); // 表示対象の工程だけ
   const rooms = db.locations.filter(l=> kind==="common" ? l.kind==="common" : l.kind!=="common");
-  // フロア一覧（部屋があるフロアだけ）
-  let order,labelOf;
+  // フロア一覧（部屋があるフロアだけ）と、フロア→部屋のマップ
+  let order,groups,labelOf;
   if(kind==="common"){
-    const cg=commonFloorGroups(rooms); order=cg.order; labelOf=(fl)=>fl||"階未設定";
+    const cg=commonFloorGroups(rooms); order=cg.order; groups=cg.groups; labelOf=(fl)=>fl||"階未設定";
   }else{
-    const g=grouped(); order=g.order; labelOf=(fl)=>fl;
+    const g=grouped(); order=g.order; groups=g.groups; labelOf=(fl)=>fl;
   }
+  // バーの終了日を「完了期限」として、そのフロアの各部屋の同じ工程に反映する
+  // （帯を消したら期限もクリア）。キー="kind|floor|procId"
+  const applyBarDeadline=(key,end)=>{
+    const parts=key.split("|"); const pid=parts[parts.length-1]; const fl=parts.slice(1,-1).join("|");
+    (groups[fl]||[]).forEach(l=>{
+      if(!procListFor(l).some(p=>p.id===pid)) return; // その部屋に無い工程はスキップ
+      setProg(l,pid,{deadline: end||""}); l.updatedAt=Date.now();
+    });
+  };
   if(order.length===0){
     html+=`<div class="empty" style="margin-top:24px">${kind==="common"?"共用部":"住戸"}が登録されていません。設定の「住戸・共用部の登録」で追加してください。</div>`;
     v.innerHTML=html; wireKind(); return;
@@ -1866,7 +1875,7 @@ function renderBar(){
   html+=`<div class="bar-scroll"><table class="bar-table">${thead}${tbody}</table></div>`;
   if(!full){
     html+=`<div class="bar-toolbar"><button type="button" class="bar-cfg-btn" id="barCfgBtn">⚙ 表示する工程</button></div>`;
-    html+=`<div class="bar-hint">マスを長押ししてから指でなぞると、その範囲が工事期間になります。すでにある帯は、端をつかんで外へなぞると伸び、内へ戻すと縮みます（反対の端は動きません）。何もない所からなぞると新しく引き直します。丸ごと消すときは左の項目タップ→「この予定を消す」。今日の列は青、土日はうすい色です。「表示する工程」でこの表に出す工程を選べます。</div>`;
+    html+=`<div class="bar-hint">マスを長押ししてから指でなぞると、その範囲が工事期間になります。すでにある帯は、端をつかんで外へなぞると伸び、内へ戻すと縮みます（反対の端は動きません）。何もない所からなぞると新しく引き直します。<b>帯の終了日は、そのフロアの各部屋の「完了期限」にも反映されます</b>（帯を消すと期限も消えます）。丸ごと消すときは左の項目タップ→「この予定を消す」。今日の列は青、土日はうすい色です。「表示する工程」でこの表に出す工程を選べます。</div>`;
   }
   v.innerHTML=html;
   v.classList.toggle("bar-full", full); // 全画面表示のオン/オフ
@@ -1886,17 +1895,17 @@ function renderBar(){
     const title=`${labelOf(fl)}／${p?p.name:""} の予定`;
     const res=await barDateDialog(title, plans[key]);
     if(res===null) return;
-    if(res.clear){ delete plans[key]; }
-    else{ plans[key]={start:res.start,end:res.end}; }
+    if(res.clear){ delete plans[key]; applyBarDeadline(key,""); }
+    else{ plans[key]={start:res.start,end:res.end}; applyBarDeadline(key,res.end); }
     save(); renderBar();
   }));
-  wireBarDrag(v, plans);
+  wireBarDrag(v, plans, applyBarDeadline);
 }
 /* 長押ししてからなぞって工事期間を引く（横スクロールと区別する）
    - マスを約0.3秒長押しで「なぞりモード」に入る（それまでに指が動いたらスクロール優先）
    - なぞった範囲（同じ行内）を仮の帯としてプレビュー → 指を離すと保存
    - 前後どちらからなぞっても、小さい方をstart・大きい方をendにする */
-function wireBarDrag(v, plans){
+function wireBarDrag(v, plans, applyBarDeadline){
   const scroll=v.querySelector(".bar-scroll");
   if(!scroll) return;
   const cells=[...scroll.querySelectorAll(".bar-cell[data-date]")];
@@ -1944,6 +1953,7 @@ function wireBarDrag(v, plans){
     if(dragKey && startDate && lastDate){
       const {lo,hi}=effRange(dragKey,startDate,lastDate);
       plans[dragKey]={start:lo,end:hi};
+      if(applyBarDeadline) applyBarDeadline(dragKey,hi); // 終了日を完了期限にも反映
       save(); renderBar(); // 再描画で帯が本描画され、リスナーも張り直される
       return true;
     }
