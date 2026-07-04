@@ -1705,6 +1705,26 @@ function barDateDialog(title, cur){
   });
 }
 
+/* ブラウザのフルスクリーン（アドレスバーごと隠す）。iOS Safariは非対応なので、その場合は
+   CSSの全画面表示だけになる（例外は握りつぶす） */
+function barReqBrowserFull(){
+  const el=document.documentElement;
+  const req=el.requestFullscreen||el.webkitRequestFullscreen;
+  if(req){ try{ const r=req.call(el); if(r&&r.catch) r.catch(()=>{}); }catch(e){} }
+}
+function barExitBrowserFull(){
+  if(document.fullscreenElement||document.webkitFullscreenElement){
+    const ex=document.exitFullscreen||document.webkitExitFullscreen;
+    if(ex){ try{ const r=ex.call(document); if(r&&r.catch) r.catch(()=>{}); }catch(e){} }
+  }
+}
+// ブラウザ側で全画面が解除されたら（システム操作など）、アプリの全画面表示も合わせて戻す
+function barOnFsChange(){
+  const isFs=!!(document.fullscreenElement||document.webkitFullscreenElement);
+  if(!isFs && barFull){ barFull=false; const v=el("viewBar"); if(v&&v.classList.contains("active")) renderBar(); }
+}
+document.addEventListener("fullscreenchange", barOnFsChange);
+document.addEventListener("webkitfullscreenchange", barOnFsChange);
 function goBar(){ barFull=false; renderBar(); showView("bar"); }
 function barVisibleKey(kind){ return kind==="common"?"barVisibleCommon":"barVisibleUnit"; }
 function barVisibleProcs(kind, allProcs){
@@ -1760,7 +1780,7 @@ function renderBar(){
         <div class="detail-title">バーチャート</div>
         <button type="button" class="bar-mini-btn" id="barFullBtn">⛶ 全画面</button>
       </div>`;
-    html+=`<div class="detail-sub">フロア×工程の予定を横棒で表示します。カレンダーのマスを長押ししてから指でなぞると、その範囲を工事期間にできます。左の項目名タップでも開始日・終了日を入力できます。横にスクロールできます。<b>横向きにして「⛶ 全画面」にすると見やすくなります。</b></div>`;
+    html+=`<div class="detail-sub">フロア×工程の予定を横棒で表示します。カレンダーのマスを長押ししてから指でなぞると、その範囲を工事期間にできます。左の項目名タップでも開始日・終了日を入力できます。横にスクロールできます。<b>横向きにして「⛶ 全画面」にすると見やすくなります（Android Chromeなどではアドレスバーも隠れます）。</b></div>`;
     html+=`<div class="tabs">
         <button type="button" class="tab-btn ${kind==="unit"?"active":""}" data-rk="unit">住戸</button>
         <button type="button" class="tab-btn ${kind==="common"?"active":""}" data-rk="common">共用部</button>
@@ -1851,7 +1871,12 @@ function renderBar(){
   v.innerHTML=html;
   v.classList.toggle("bar-full", full); // 全画面表示のオン/オフ
   const fb=el("barFullBtn");
-  if(fb) fb.addEventListener("click",()=>{ barFull=!barFull; renderBar(); });
+  if(fb) fb.addEventListener("click",()=>{
+    barFull=!barFull;
+    // 対応ブラウザ（Android Chrome等）ではブラウザのフルスクリーンも呼び、アドレスバーごと隠す
+    if(barFull) barReqBrowserFull(); else barExitBrowserFull();
+    renderBar();
+  });
   wireKind();
   // 行ラベルタップ → 日付入力
   v.querySelectorAll(".bar-label").forEach(cell=>cell.addEventListener("click",async ()=>{
