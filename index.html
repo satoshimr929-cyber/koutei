@@ -526,18 +526,21 @@
   .bar-table thead th{position:sticky;top:0;z-index:2;background:#f1f3f4;color:var(--ink-soft);
     font-weight:600;height:38px;min-width:34px;border-bottom:1px solid var(--line);border-left:1px solid var(--line);text-align:center;white-space:nowrap}
   .bar-table thead th.bar-corner{position:sticky;left:0;z-index:3;background:#f1f3f4;text-align:left;
-    min-width:104px;max-width:104px;padding:0 8px;border-left:none;font-weight:700;color:var(--ink)}
+    min-width:124px;max-width:124px;padding:0 8px;border-left:none;font-weight:700;color:var(--ink)}
   /* 日付の列は幅を揃える（2桁の日付でも広がらないように固定幅） */
   .bar-table thead th.bar-mhead{color:var(--ink);font-weight:700;width:38px;min-width:38px;max-width:38px}
+  /* 工程名の列：幅を固定し、全行の高さも揃える（内箱を固定高さにして、はみ出しは隠す） */
   .bar-table td.bar-label,.bar-table th.bar-label{position:sticky;left:0;z-index:1;background:#fff;
-    min-width:104px;max-width:104px;padding:6px 8px;border-top:1px solid var(--line);
-    border-right:1px solid var(--line);text-align:left;line-height:1.25;cursor:pointer}
-  .bar-table td.bar-label .bl-floor{display:block;font-size:10px;color:var(--accent-press);font-weight:700;margin-bottom:1px}
-  .bar-table td.bar-label .bl-proc{font-weight:600;color:var(--ink);font-size:12px}
+    width:124px;min-width:124px;max-width:124px;height:46px;padding:0 8px;
+    border-top:1px solid var(--line);border-right:1px solid var(--line);text-align:left;
+    line-height:1.15;vertical-align:middle;cursor:pointer}
+  .bar-table td.bar-label .bl-in{height:44px;overflow:hidden;display:flex;flex-direction:column;justify-content:center}
+  .bar-table td.bar-label .bl-floor{font-size:10px;color:var(--accent-press);font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .bar-table td.bar-label .bl-proc{font-weight:600;color:var(--ink);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .bar-table td.bar-label .bl-range{display:block;font-size:10px;color:var(--ink-soft);margin-top:1px}
   .bar-table td.bar-label .bl-empty{display:block;font-size:10px;color:var(--accent);margin-top:1px}
   .bar-table td.bar-label.bar-newfloor{border-top:2px solid var(--line-strong,#c8ccd0)}
-  .bar-cell{height:40px;width:38px;min-width:38px;max-width:38px;border-top:1px solid var(--line);border-left:1px solid #eef1f4;position:relative}
+  .bar-cell{height:46px;width:38px;min-width:38px;max-width:38px;border-top:1px solid var(--line);border-left:1px solid #eef1f4;position:relative}
   .bar-cell.today{background:#eaf2ff}
   .bar-cell.wknd{background:#faf7f2}
   .bar-cell.bar-newfloor{border-top:2px solid var(--line-strong,#c8ccd0)}
@@ -1790,7 +1793,7 @@ function renderBar(){
       const nf = newFloor ? " bar-newfloor" : "";
       const floorTxt = newFloor ? `<span class="bl-floor">${escapeHtml(labelOf(fl))}</span>` : ``;
       const rangeTxt = (pl&&pl.start&&pl.end) ? `<span class="bl-range">${pl.start.slice(5)}〜${pl.end.slice(5)}</span>` : `<span class="bl-empty">日付を入れる</span>`;
-      tbody+=`<tr><td class="bar-label${nf}" data-key="${escapeHtml(key)}" data-floor="${escapeHtml(fl)}" data-proc="${escapeHtml(p.id)}">${floorTxt}<span class="bl-proc">${escapeHtml(p.name)}</span>${rangeTxt}</td>`;
+      tbody+=`<tr><td class="bar-label${nf}" data-key="${escapeHtml(key)}" data-floor="${escapeHtml(fl)}" data-proc="${escapeHtml(p.id)}"><div class="bl-in">${floorTxt}<span class="bl-proc">${escapeHtml(p.name)}</span>${rangeTxt}</div></td>`;
       const s=pl?dParse(pl.start):null, e=pl?dParse(pl.end):null;
       dayList.forEach(d=>{
         const isToday=dFmt(d)===todayS;
