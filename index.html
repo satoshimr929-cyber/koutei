@@ -525,17 +525,23 @@
   .bar-table th,.bar-table td{padding:0;margin:0;box-sizing:border-box}
   .bar-table thead th{position:sticky;top:0;z-index:2;background:#f1f3f4;color:var(--ink-soft);
     font-weight:600;height:38px;min-width:34px;border-bottom:1px solid var(--line);border-left:1px solid var(--line);text-align:center;white-space:nowrap}
-  .bar-table thead th.bar-corner{position:sticky;left:0;z-index:3;background:#f1f3f4;text-align:left;
-    min-width:124px;max-width:124px;padding:0 8px;border-left:none;font-weight:700;color:var(--ink)}
+  /* 左上の角：「階」「工程」の2列を縦横とも固定 */
+  .bar-table thead th.bar-corner{z-index:3;background:#f1f3f4;font-weight:700;color:var(--ink)}
+  .bar-table thead th.bar-corner-fl{left:0;width:32px;min-width:32px;max-width:32px;text-align:center;padding:0 2px;border-left:none}
+  .bar-table thead th.bar-corner-pr{left:32px;width:104px;min-width:104px;max-width:104px;text-align:left;padding:0 8px}
   /* 日付の列は幅を揃える（2桁の日付でも広がらないように固定幅） */
   .bar-table thead th.bar-mhead{color:var(--ink);font-weight:700;width:38px;min-width:38px;max-width:38px}
+  /* フロア列：細い固定幅・縦結合。フロア名を1回だけ表示 */
+  .bar-table td.bar-floor{position:sticky;left:0;z-index:1;background:#fff;width:32px;min-width:32px;max-width:32px;
+    border-top:1px solid var(--line);border-right:1px solid var(--line);text-align:center;vertical-align:middle;
+    font-size:11px;font-weight:700;color:var(--accent-press);padding:2px;line-height:1.1;word-break:break-all}
+  .bar-table td.bar-floor.bar-newfloor{border-top:2px solid var(--line-strong,#c8ccd0)}
   /* 工程名の列：幅を固定し、全行の高さも揃える（内箱を固定高さにして、はみ出しは隠す） */
-  .bar-table td.bar-label,.bar-table th.bar-label{position:sticky;left:0;z-index:1;background:#fff;
-    width:124px;min-width:124px;max-width:124px;height:46px;padding:0 8px;
+  .bar-table td.bar-label,.bar-table th.bar-label{position:sticky;left:32px;z-index:1;background:#fff;
+    width:104px;min-width:104px;max-width:104px;height:46px;padding:0 8px;
     border-top:1px solid var(--line);border-right:1px solid var(--line);text-align:left;
     line-height:1.15;vertical-align:middle;cursor:pointer}
   .bar-table td.bar-label .bl-in{height:44px;overflow:hidden;display:flex;flex-direction:column;justify-content:center}
-  .bar-table td.bar-label .bl-floor{font-size:10px;color:var(--accent-press);font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .bar-table td.bar-label .bl-proc{font-weight:600;color:var(--ink);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .bar-table td.bar-label .bl-range{display:block;font-size:10px;color:var(--ink-soft);margin-top:1px}
   .bar-table td.bar-label .bl-empty{display:block;font-size:10px;color:var(--accent);margin-top:1px}
@@ -560,6 +566,18 @@
   .bar-cfg-list label{display:flex;align-items:center;gap:10px;padding:10px 8px;border-radius:8px;font-size:14px;cursor:pointer}
   .bar-cfg-list label:active{background:#f1f3f4}
   .bar-cfg-list input{width:18px;height:18px}
+  /* 全画面切替ボタン（タイトル横） */
+  .bar-mini-btn{flex:0 0 auto;display:inline-flex;align-items:center;gap:4px;background:var(--accent);border:none;
+    color:#fff;font-weight:700;font-size:13px;border-radius:18px;padding:8px 14px;cursor:pointer;white-space:nowrap}
+  .bar-mini-btn:active{background:var(--accent-press)}
+  /* バーチャートの全画面表示：画面いっぱいに広げる（横持ちで見やすい） */
+  #viewBar.bar-full{position:fixed;inset:0;z-index:60;background:var(--panel);margin:0;
+    padding:calc(env(safe-area-inset-top) + 6px) 10px calc(env(safe-area-inset-bottom) + 6px);
+    display:flex;flex-direction:column;overflow:hidden}
+  #viewBar.bar-full .detail-title-row{flex:0 0 auto;margin:0 0 6px}
+  #viewBar.bar-full .tabs{flex:0 0 auto;margin:0 0 6px}
+  #viewBar.bar-full .bar-scroll{flex:1 1 auto;max-height:none;min-height:0;margin-top:0}
+  #viewBar.bar-full .bar-toolbar{flex:0 0 auto;margin-top:6px}
   /* === ボトムナビ（Google Drive 風） === */
   #dueBtn,#byprocBtn,#shareBtns{display:none !important}
   .botnav{position:fixed;left:0;right:0;bottom:0;z-index:40;display:none;
@@ -1646,6 +1664,7 @@ function renderSchedule(){
    - 行ラベルをタップ → 開始日・終了日を入力して帯を引く
    ========================================================= */
 let barKind="unit"; // "unit"=住戸 / "common"=共用部
+let barFull=false;   // バーチャートの全画面表示（横持ちで見やすい）
 function barPlans(){ if(!db.barPlans) db.barPlans={}; return db.barPlans; }
 function barKeyOf(kind,floor,pid){ return kind+"|"+floor+"|"+pid; }
 function dParse(s){ if(!s) return null; const p=s.split("-"); if(p.length!==3) return null; return new Date(+p[0],+p[1]-1,+p[2]); }
@@ -1684,7 +1703,7 @@ function barDateDialog(title, cur){
   });
 }
 
-function goBar(){ renderBar(); showView("bar"); }
+function goBar(){ barFull=false; renderBar(); showView("bar"); }
 function barVisibleKey(kind){ return kind==="common"?"barVisibleCommon":"barVisibleUnit"; }
 function barVisibleProcs(kind, allProcs){
   // db.ui.barVisibleUnit / barVisibleCommon に表示する工程IDの配列。未設定なら全表示
@@ -1729,9 +1748,13 @@ function renderBar(){
     const cfg=el("barCfgBtn");
     if(cfg) cfg.addEventListener("click",()=>openBarConfig(kind, allProcs));
   };
-  let html=`<div class="detail-title-row"><div class="detail-title">バーチャート</div></div>
-    <div class="detail-sub">フロア×工程の予定を横棒で表示します。カレンダーのマスを長押ししてから指でなぞると、その範囲を工事期間にできます。左の項目名タップでも開始日・終了日を入力できます。横にスクロールできます。</div>
-    <div class="tabs">
+  const full=barFull;
+  let html=`<div class="detail-title-row" style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+      <div class="detail-title">バーチャート</div>
+      <button type="button" class="bar-mini-btn" id="barFullBtn">${full?"✕ 全画面を閉じる":"⛶ 全画面"}</button>
+    </div>`;
+  if(!full) html+=`<div class="detail-sub">フロア×工程の予定を横棒で表示します。カレンダーのマスを長押ししてから指でなぞると、その範囲を工事期間にできます。左の項目名タップでも開始日・終了日を入力できます。横にスクロールできます。<b>横向きにして「⛶ 全画面」にすると見やすくなります。</b></div>`;
+  html+=`<div class="tabs">
       <button type="button" class="tab-btn ${kind==="unit"?"active":""}" data-rk="unit">住戸</button>
       <button type="button" class="tab-btn ${kind==="common"?"active":""}" data-rk="common">共用部</button>
     </div>`;
@@ -1775,15 +1798,15 @@ function renderBar(){
   const todayS=todayStr();
   const wd=["日","月","火","水","木","金","土"];
 
-  // ヘッダ（日付）
-  let thead=`<thead><tr><th class="bar-corner">フロア・工程</th>`;
+  // ヘッダ（日付）。左は「階」「工程」の2列を固定
+  let thead=`<thead><tr><th class="bar-corner bar-corner-fl">階</th><th class="bar-corner bar-corner-pr">工程</th>`;
   dayList.forEach(d=>{
     const isToday=dFmt(d)===todayS;
     thead+=`<th class="bar-mhead${isToday?" today":""}">${d.getMonth()+1}/${d.getDate()}<br><span style="font-weight:400">${wd[d.getDay()]}</span></th>`;
   });
   thead+=`</tr></thead>`;
 
-  // 本体（各行 = フロア×工程。フロア名は左ラベルに含め、フロアの変わり目に区切り線）
+  // 本体（各行 = フロア×工程。フロアは細い列にまとめて縦結合、工程名は別列）
   let tbody=`<tbody>`;
   order.forEach(fl=>{
     procs.forEach((p,pi)=>{
@@ -1791,9 +1814,11 @@ function renderBar(){
       const pl=plans[key];
       const newFloor = (pi===0); // 各フロアの先頭工程行の上に区切り線
       const nf = newFloor ? " bar-newfloor" : "";
-      const floorTxt = newFloor ? `<span class="bl-floor">${escapeHtml(labelOf(fl))}</span>` : ``;
       const rangeTxt = (pl&&pl.start&&pl.end) ? `<span class="bl-range">${pl.start.slice(5)}〜${pl.end.slice(5)}</span>` : `<span class="bl-empty">日付を入れる</span>`;
-      tbody+=`<tr><td class="bar-label${nf}" data-key="${escapeHtml(key)}" data-floor="${escapeHtml(fl)}" data-proc="${escapeHtml(p.id)}"><div class="bl-in">${floorTxt}<span class="bl-proc">${escapeHtml(p.name)}</span>${rangeTxt}</div></td>`;
+      tbody+=`<tr>`;
+      // フロア列：各フロアの先頭行だけ、工程数ぶん縦結合して1回だけ表示
+      if(newFloor) tbody+=`<td class="bar-floor bar-newfloor" rowspan="${procs.length}">${escapeHtml(labelOf(fl))}</td>`;
+      tbody+=`<td class="bar-label${nf}" data-key="${escapeHtml(key)}" data-floor="${escapeHtml(fl)}" data-proc="${escapeHtml(p.id)}"><div class="bl-in"><span class="bl-proc">${escapeHtml(p.name)}</span>${rangeTxt}</div></td>`;
       const s=pl?dParse(pl.start):null, e=pl?dParse(pl.end):null;
       dayList.forEach(d=>{
         const isToday=dFmt(d)===todayS;
@@ -1812,8 +1837,11 @@ function renderBar(){
   tbody+=`</tbody>`;
   html+=`<div class="bar-scroll"><table class="bar-table">${thead}${tbody}</table></div>`;
   html+=`<div class="bar-toolbar"><button type="button" class="bar-cfg-btn" id="barCfgBtn">⚙ 表示する工程</button></div>`;
-  html+=`<div class="bar-hint">マスを長押ししてから指でなぞると、その範囲が工事期間になります。すでにある帯は、端をつかんで外へなぞると伸び、内へ戻すと縮みます（反対の端は動きません）。何もない所からなぞると新しく引き直します。丸ごと消すときは左の項目タップ→「この予定を消す」。今日の列は青、土日はうすい色です。「表示する工程」でこの表に出す工程を選べます。</div>`;
+  if(!full) html+=`<div class="bar-hint">マスを長押ししてから指でなぞると、その範囲が工事期間になります。すでにある帯は、端をつかんで外へなぞると伸び、内へ戻すと縮みます（反対の端は動きません）。何もない所からなぞると新しく引き直します。丸ごと消すときは左の項目タップ→「この予定を消す」。今日の列は青、土日はうすい色です。「表示する工程」でこの表に出す工程を選べます。</div>`;
   v.innerHTML=html;
+  v.classList.toggle("bar-full", full); // 全画面表示のオン/オフ
+  const fb=el("barFullBtn");
+  if(fb) fb.addEventListener("click",()=>{ barFull=!barFull; renderBar(); });
   wireKind();
   // 行ラベルタップ → 日付入力
   v.querySelectorAll(".bar-label").forEach(cell=>cell.addEventListener("click",async ()=>{
