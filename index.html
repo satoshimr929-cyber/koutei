@@ -355,6 +355,13 @@
   .proc-dl-row.over{color:#b42318}
   .proc-dl-row.over input[type=date]{border-color:#f3b4b4}
   .pdl-clear{background:none;border:none;color:var(--ink-soft);font-size:12px;font-weight:600;padding:4px}
+  .proc-period{margin-bottom:2px;font-size:12px;font-weight:600;color:var(--ink-soft)}
+  .proc-period.over{color:#b42318}
+  .proc-period .pp-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px}
+  .proc-period .pp-inputs{display:flex;gap:8px}
+  .proc-period .pp-inputs label{flex:1;display:flex;align-items:center;gap:5px;font-size:11px;font-weight:700;color:var(--ink-soft)}
+  .proc-period .pp-inputs input[type=date]{flex:1;min-width:0;border:1px solid var(--line);border-radius:8px;padding:8px;font-size:14px;font-family:inherit;background:#fff;color:var(--ink)}
+  .proc-period.over .pp-inputs input[type=date]{border-color:#f3b4b4}
 
   /* 残工事チェックリスト */
   .rem-list{display:flex;flex-direction:column;gap:4px;margin-bottom:8px}
@@ -1134,6 +1141,24 @@ function normalizeDb(){
       if(typeof l.floor!=="string" || l.floor==="共用部") l.floor="";
     }
   });
+  // 施工期間の導入：既存のバーチャート（barPlans）の開始・完了を、各部屋の工程に一度だけ取り込む
+  // （帯を消したときに期間が復活しないよう、移行は一度きり。部屋に既に入っている値は上書きしない）
+  if(!db.ui.barPeriodMigrated){
+    const plans=db.barPlans||{};
+    Object.keys(plans).forEach(key=>{
+      const pl=plans[key]; if(!pl||!pl.start||!pl.end) return;
+      const parts=key.split("|"); const kind=parts[0]; const pid=parts[parts.length-1]; const fl=parts.slice(1,-1).join("|");
+      db.locations.forEach(l=>{
+        if(barKindOf(l)!==kind || barFloorKeyOf(l)!==fl) return;
+        if(!procListFor(l).some(p=>p.id===pid)) return;
+        const pr=getProg(l,pid), patch={};
+        if(!pr.start) patch.start=pl.start;
+        if(!pr.deadline) patch.deadline=pl.end;
+        if(Object.keys(patch).length) setProg(l,pid,patch);
+      });
+    });
+    db.ui.barPeriodMigrated=true;
+  }
 }
 function save(){
   try{ localStorage.setItem(STORE_KEY,JSON.stringify(db)); }
@@ -1246,9 +1271,9 @@ function getProg(loc,pid){
     if(typeof rem==="string" && rem.trim()) return [{text:rem.trim(),done:false}];
     return [];
   };
-  if(!v) return {status:"todo",remaining:[],deadline:""};
-  if(typeof v==="string") return {status:v,remaining:[],deadline:""};
-  return {status:v.status||"todo",remaining:norm(v.remaining),deadline:v.deadline||""};
+  if(!v) return {status:"todo",remaining:[],deadline:"",start:""};
+  if(typeof v==="string") return {status:v,remaining:[],deadline:"",start:""};
+  return {status:v.status||"todo",remaining:norm(v.remaining),deadline:v.deadline||"",start:v.start||""};
 }
 function setProg(loc,pid,patch){
   loc.progress=loc.progress||{};
@@ -1669,6 +1694,24 @@ let barKind="unit"; // "unit"=住戸 / "common"=共用部
 let barFull=false;   // バーチャートの全画面表示（横持ちで見やすい）
 function barPlans(){ if(!db.barPlans) db.barPlans={}; return db.barPlans; }
 function barKeyOf(kind,floor,pid){ return kind+"|"+floor+"|"+pid; }
+// 部屋がバーチャートのどのフロア行に属するかのキー（renderBarのグルーピングと一致させる）
+function barKindOf(loc){ return loc.kind==="common" ? "common" : "unit"; }
+function barFloorKeyOf(loc){ return loc.kind==="common" ? (loc.floor||"") : (loc.floor||"（階未設定）"); }
+// 部屋の施工期間を編集したら、そのフロア×工程のバー（＝一番長い期間）を計算し直す
+function syncBarFromRooms(loc,pid){
+  const kind=barKindOf(loc), flKey=barFloorKeyOf(loc);
+  const rooms=db.locations.filter(l=> barKindOf(l)===kind && barFloorKeyOf(l)===flKey);
+  let minStart=null, maxEnd=null;
+  rooms.forEach(l=>{
+    if(!procListFor(l).some(p=>p.id===pid)) return;
+    const pr=getProg(l,pid);
+    if(pr.start && (!minStart || pr.start<minStart)) minStart=pr.start;
+    if(pr.deadline && (!maxEnd || pr.deadline>maxEnd)) maxEnd=pr.deadline;
+  });
+  const key=barKeyOf(kind,flKey,pid), plans=barPlans();
+  if(minStart && maxEnd && minStart<=maxEnd) plans[key]={start:minStart,end:maxEnd};
+  else delete plans[key];
+}
 function dParse(s){ if(!s) return null; const p=s.split("-"); if(p.length!==3) return null; return new Date(+p[0],+p[1]-1,+p[2]); }
 function dFmt(d){ return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; }
 function dAddDays(d,n){ const x=new Date(d); x.setDate(x.getDate()+n); return x; }
@@ -1799,13 +1842,13 @@ function renderBar(){
   }else{
     const g=grouped(); order=g.order; groups=g.groups; labelOf=(fl)=>fl;
   }
-  // バーの終了日を「完了期限」として、そのフロアの各部屋の同じ工程に反映する
-  // （帯を消したら期限もクリア）。キー="kind|floor|procId"
-  const applyBarDeadline=(key,end)=>{
+  // バーの施工期間（開始・完了）を、そのフロアの各部屋の同じ工程に反映する
+  // （帯を消したら期間もクリア）。キー="kind|floor|procId"
+  const applyBarPeriod=(key,start,end)=>{
     const parts=key.split("|"); const pid=parts[parts.length-1]; const fl=parts.slice(1,-1).join("|");
     (groups[fl]||[]).forEach(l=>{
       if(!procListFor(l).some(p=>p.id===pid)) return; // その部屋に無い工程はスキップ
-      setProg(l,pid,{deadline: end||""}); l.updatedAt=Date.now();
+      setProg(l,pid,{start: start||"", deadline: end||""}); l.updatedAt=Date.now();
     });
   };
   if(order.length===0){
@@ -1875,7 +1918,7 @@ function renderBar(){
   html+=`<div class="bar-scroll"><table class="bar-table">${thead}${tbody}</table></div>`;
   if(!full){
     html+=`<div class="bar-toolbar"><button type="button" class="bar-cfg-btn" id="barCfgBtn">⚙ 表示する工程</button></div>`;
-    html+=`<div class="bar-hint">マスを長押ししてから指でなぞると、その範囲が工事期間になります。すでにある帯は、端をつかんで外へなぞると伸び、内へ戻すと縮みます（反対の端は動きません）。何もない所からなぞると新しく引き直します。<b>帯の終了日は、そのフロアの各部屋の「完了期限」にも反映されます</b>（帯を消すと期限も消えます）。丸ごと消すときは左の項目タップ→「この予定を消す」。今日の列は青、土日はうすい色です。「表示する工程」でこの表に出す工程を選べます。</div>`;
+    html+=`<div class="bar-hint">マスを長押ししてから指でなぞると、その範囲が工事期間になります。すでにある帯は、端をつかんで外へなぞると伸び、内へ戻すと縮みます（反対の端は動きません）。何もない所からなぞると新しく引き直します。<b>帯（開始〜完了）は、そのフロアの各部屋の「施工期間」に反映されます</b>（帯を消すと期間も消えます）。逆に、部屋ごとに施工期間を入れると、一番長い期間がこの帯に出ます。丸ごと消すときは左の項目タップ→「この予定を消す」。今日の列は青、土日はうすい色です。「表示する工程」でこの表に出す工程を選べます。</div>`;
   }
   v.innerHTML=html;
   v.classList.toggle("bar-full", full); // 全画面表示のオン/オフ
@@ -1895,17 +1938,17 @@ function renderBar(){
     const title=`${labelOf(fl)}／${p?p.name:""} の予定`;
     const res=await barDateDialog(title, plans[key]);
     if(res===null) return;
-    if(res.clear){ delete plans[key]; applyBarDeadline(key,""); }
-    else{ plans[key]={start:res.start,end:res.end}; applyBarDeadline(key,res.end); }
+    if(res.clear){ delete plans[key]; applyBarPeriod(key,"",""); }
+    else{ plans[key]={start:res.start,end:res.end}; applyBarPeriod(key,res.start,res.end); }
     save(); renderBar();
   }));
-  wireBarDrag(v, plans, applyBarDeadline);
+  wireBarDrag(v, plans, applyBarPeriod);
 }
 /* 長押ししてからなぞって工事期間を引く（横スクロールと区別する）
    - マスを約0.3秒長押しで「なぞりモード」に入る（それまでに指が動いたらスクロール優先）
    - なぞった範囲（同じ行内）を仮の帯としてプレビュー → 指を離すと保存
    - 前後どちらからなぞっても、小さい方をstart・大きい方をendにする */
-function wireBarDrag(v, plans, applyBarDeadline){
+function wireBarDrag(v, plans, applyBarPeriod){
   const scroll=v.querySelector(".bar-scroll");
   if(!scroll) return;
   const cells=[...scroll.querySelectorAll(".bar-cell[data-date]")];
@@ -1953,7 +1996,7 @@ function wireBarDrag(v, plans, applyBarDeadline){
     if(dragKey && startDate && lastDate){
       const {lo,hi}=effRange(dragKey,startDate,lastDate);
       plans[dragKey]={start:lo,end:hi};
-      if(applyBarDeadline) applyBarDeadline(dragKey,hi); // 終了日を完了期限にも反映
+      if(applyBarPeriod) applyBarPeriod(dragKey,lo,hi); // 開始・完了を各部屋にも反映
       save(); renderBar(); // 再描画で帯が本描画され、リスナーも張り直される
       return true;
     }
@@ -2221,11 +2264,20 @@ function renderDetail(){
       const pr=getProg(loc,p.id), st=pr.status, info=statusInfo(st);
       const over = pr.deadline && pr.deadline<todayStr() && st!=="done";
       const item=document.createElement("div"); item.className="proc-item "+st;
-      const dlChip = (pr.deadline && st!=="done") ? `<span class="proc-dl-chip ${over?"over":""}">〆${fmtMD(pr.deadline)}</span>` : "";
+      // 施工期間チップ：開始・完了があれば期間、片方だけならその日付
+      const periodTxt = (pr.start&&pr.deadline) ? `${fmtMD(pr.start)}〜${fmtMD(pr.deadline)}`
+        : pr.deadline ? `〆${fmtMD(pr.deadline)}` : pr.start ? `${fmtMD(pr.start)}〜` : "";
+      const dlChip = (periodTxt && st!=="done") ? `<span class="proc-dl-chip ${over?"over":""}">${periodTxt}</span>` : "";
       let html=`<button class="proc-line"><span class="proc-dot"></span><span class="proc-name">${escapeHtml(p.name)}</span>${dlChip}<span class="proc-stat">${info.label}</span></button>`;
       if(st!=="done"){
         html+=`<div class="proc-extra">
-          <div class="proc-dl-row ${over?"over":""}"><span>完了期限</span><input type="date" class="pdl" value="${pr.deadline||""}">${pr.deadline?`<button class="pdl-clear">クリア</button>`:""}</div>`;
+          <div class="proc-period ${over?"over":""}">
+            <div class="pp-head"><span>施工期間</span>${(pr.start||pr.deadline)?`<button class="pdl-clear">クリア</button>`:""}</div>
+            <div class="pp-inputs">
+              <label>開始<input type="date" class="pstart" value="${pr.start||""}"></label>
+              <label>完了<input type="date" class="pend" value="${pr.deadline||""}"></label>
+            </div>
+          </div>`;
         if(st==="doing"){
           const items=pr.remaining||[];
           const listHtml = items.length
@@ -2242,10 +2294,11 @@ function renderDetail(){
             if(v && v!==st){ setProg(loc,p.id,{status:v}); loc.updatedAt=Date.now(); save(); renderDetail(); }
           });
         });
-        const pdl=item.querySelector(".pdl");
-        if(pdl) pdl.addEventListener("change",()=>{ setProg(loc,p.id,{deadline:pdl.value||""}); loc.updatedAt=Date.now(); save(); renderDetail(); });
+        const pstart=item.querySelector(".pstart"), pend=item.querySelector(".pend");
+        if(pstart) pstart.addEventListener("change",()=>{ setProg(loc,p.id,{start:pstart.value||""}); loc.updatedAt=Date.now(); syncBarFromRooms(loc,p.id); save(); renderDetail(); });
+        if(pend) pend.addEventListener("change",()=>{ setProg(loc,p.id,{deadline:pend.value||""}); loc.updatedAt=Date.now(); syncBarFromRooms(loc,p.id); save(); renderDetail(); });
         const pdlc=item.querySelector(".pdl-clear");
-        if(pdlc) pdlc.addEventListener("click",()=>{ setProg(loc,p.id,{deadline:""}); save(); renderDetail(); });
+        if(pdlc) pdlc.addEventListener("click",()=>{ setProg(loc,p.id,{start:"",deadline:""}); loc.updatedAt=Date.now(); syncBarFromRooms(loc,p.id); save(); renderDetail(); });
         // 残工事チェックリスト
         const items=(pr.remaining||[]).slice();
         item.querySelectorAll(".rem-cb").forEach(cb=>cb.addEventListener("change",()=>{
