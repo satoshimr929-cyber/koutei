@@ -1692,6 +1692,13 @@ function renderSchedule(){
    ========================================================= */
 let barKind="unit"; // "unit"=住戸 / "common"=共用部
 let barFull=false;   // バーチャートの全画面表示（横持ちで見やすい）
+let barScrollKeep=null; // 再描画の前後でスクロール位置を保つ（なぞって離しても元の場所を表示）
+// 再描画の直前に、いまのスクロール位置と左端の日付を覚えておく
+function barRememberScroll(sc){
+  if(!sc) return;
+  const firstTh=sc.querySelector(".bar-mhead[data-date]");
+  barScrollKeep={left:sc.scrollLeft, top:sc.scrollTop, firstDate:firstTh?firstTh.dataset.date:null};
+}
 function barPlans(){ if(!db.barPlans) db.barPlans={}; return db.barPlans; }
 function barKeyOf(kind,floor,pid){ return kind+"|"+floor+"|"+pid; }
 // 部屋がバーチャートのどのフロア行に属するかのキー（renderBarのグルーピングと一致させる）
@@ -1882,7 +1889,7 @@ function renderBar(){
   let thead=`<thead><tr><th class="bar-corner bar-corner-fl">階</th><th class="bar-corner bar-corner-pr">工程</th>`;
   dayList.forEach(d=>{
     const isToday=dFmt(d)===todayS;
-    thead+=`<th class="bar-mhead${isToday?" today":""}">${d.getMonth()+1}/${d.getDate()}<br><span style="font-weight:400">${wd[d.getDay()]}</span></th>`;
+    thead+=`<th class="bar-mhead${isToday?" today":""}" data-date="${dFmt(d)}">${d.getMonth()+1}/${d.getDate()}<br><span style="font-weight:400">${wd[d.getDay()]}</span></th>`;
   });
   thead+=`</tr></thead>`;
 
@@ -1940,9 +1947,25 @@ function renderBar(){
     if(res===null) return;
     if(res.clear){ delete plans[key]; applyBarPeriod(key,"",""); }
     else{ plans[key]={start:res.start,end:res.end}; applyBarPeriod(key,res.start,res.end); }
-    save(); renderBar();
+    barRememberScroll(v.querySelector(".bar-scroll")); save(); renderBar();
   }));
   wireBarDrag(v, plans, applyBarPeriod);
+  // 再描画の前に覚えたスクロール位置へ戻す（なぞって離しても元の場所を表示）
+  if(barScrollKeep){
+    const sc=v.querySelector(".bar-scroll");
+    if(sc){
+      let addLeft=0;
+      const firstTh=sc.querySelector(".bar-mhead[data-date]");
+      if(firstTh && barScrollKeep.firstDate){
+        // 期間が伸びて左側に日付が増えた分だけ、横位置を補正（列は固定幅）
+        const nDays=dDiffDays(dParse(firstTh.dataset.date), dParse(barScrollKeep.firstDate));
+        if(nDays>0) addLeft=nDays*(firstTh.offsetWidth||38);
+      }
+      sc.scrollLeft=barScrollKeep.left+addLeft;
+      sc.scrollTop=barScrollKeep.top;
+    }
+    barScrollKeep=null;
+  }
 }
 /* 長押ししてからなぞって工事期間を引く（横スクロールと区別する）
    - マスを約0.3秒長押しで「なぞりモード」に入る（それまでに指が動いたらスクロール優先）
@@ -1997,6 +2020,7 @@ function wireBarDrag(v, plans, applyBarPeriod){
       const {lo,hi}=effRange(dragKey,startDate,lastDate);
       plans[dragKey]={start:lo,end:hi};
       if(applyBarPeriod) applyBarPeriod(dragKey,lo,hi); // 開始・完了を各部屋にも反映
+      barRememberScroll(scroll); // なぞって離しても元のスクロール位置を保つ
       save(); renderBar(); // 再描画で帯が本描画され、リスナーも張り直される
       return true;
     }
