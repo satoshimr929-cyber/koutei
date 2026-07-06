@@ -504,8 +504,11 @@
     border-top:1px solid var(--line);border-right:1px solid var(--line-strong);white-space:nowrap;
     overflow:hidden;text-overflow:ellipsis}
   .sch-table tbody tr:first-child td.sch-room{border-top:none}
+  /* フロア見出し：ラベルを部屋名列と同じ幅にして、横スクロールしても左に固定表示 */
   .sch-fhead th{position:sticky;left:0;z-index:1;background:#eef1f4;color:var(--ink-soft);font-weight:800;
-    text-align:left;padding:6px 8px;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+    text-align:left;padding:6px 8px;border-top:1px solid var(--line);border-bottom:1px solid var(--line);
+    min-width:74px;max-width:74px;white-space:nowrap;border-right:1px solid var(--line-strong)}
+  .sch-fhead td{background:#eef1f4;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
   /* マス目 */
   .sch-cell{width:46px;height:44px;min-width:46px;border-top:1px solid var(--line);border-left:1px solid var(--line);
     text-align:center;vertical-align:middle;cursor:pointer;font-weight:800;font-size:15px;line-height:1;user-select:none}
@@ -1616,8 +1619,8 @@ function renderSchedule(){
       scheduleKind=b.dataset.sk; renderSchedule(); window.scrollTo(0,0);
     }));
   };
-  let html=`<div class="detail-title-row"><div class="detail-title">工程表</div></div>
-    <div class="detail-sub">部屋（縦）×工程（横）の一覧です。マスをタップして 未着手／施工中／完了 を変更できます。横にスクロールできます。</div>
+  let html=`<div class="detail-title-row"><div class="detail-title">進捗表</div></div>
+    <div class="detail-sub">部屋（縦）×工程（横）の一覧です。マスをタップして進捗の変更や、部屋の詳細をひらけます。横にスクロールできます。</div>
     <div class="tabs">
       <button type="button" class="tab-btn ${kind==="unit"?"active":""}" data-sk="unit">住戸</button>
       <button type="button" class="tab-btn ${kind==="common"?"active":""}" data-sk="common">共用部</button>
@@ -1645,12 +1648,12 @@ function renderSchedule(){
   procs.forEach(p=>{ thead+=`<th>${escapeHtml(p.name)}</th>`; });
   thead+=`</tr></thead>`;
   // 本体（フロアごとに小見出し行＋部屋行）
+  // フロア名は部屋名列と同じ幅のセルに入れて、横スクロールしても見えるようにする
   let tbody=`<tbody>`;
-  const colspan=procs.length+1;
   order.forEach(fl=>{
     const locs=groups[fl]||[];
     if(locs.length===0) return;
-    tbody+=`<tr class="sch-fhead"><th colspan="${colspan}">${escapeHtml(labelOf(fl))}</th></tr>`;
+    tbody+=`<tr class="sch-fhead"><th>${escapeHtml(labelOf(fl))}</th><td colspan="${procs.length}"></td></tr>`;
     locs.forEach(l=>{
       tbody+=`<tr><td class="sch-room">${escapeHtml(l.name)}</td>`;
       procs.forEach(p=>{
@@ -1680,7 +1683,8 @@ function renderSchedule(){
     const pid=cell.dataset.proc;
     if(!l) return;
     const cur=getProg(l,pid).status||"todo";
-    pickStatus(cur, l.name+" の進捗").then(val=>{
+    pickStatus(cur, l.name+" の進捗", {detailLabel:"部屋の詳細"}).then(val=>{
+      if(val==="__detail"){ openDetail(l.id); return; }
       if(val && val!==cur){ setProg(l,pid,{status:val}); l.updatedAt=Date.now(); save(); renderSchedule(); }
     });
   }));
@@ -4041,8 +4045,10 @@ async function agRoute(user){
 }
 
 /* アプリ内の確認・入力ポップアップ（ブラウザのconfirm/promptに依存しない） */
-function pickStatus(current,title){
+function pickStatus(current,title,options){
   // タップで 未着手/施工中/完了 を直接選ぶ。キャンセル・枠外タップは null を返す（変更しない）
+  // options.detailLabel を渡すと詳細ボタンを出し、押されたら "__detail" を返す
+  options=options||{};
   return new Promise(resolve=>{
     const opts=[{v:"todo",label:"未着手"},{v:"doing",label:"施工中"},{v:"done",label:"完了"}];
     const ov=document.createElement("div"); ov.className="modal active";
@@ -4051,7 +4057,12 @@ function pickStatus(current,title){
       <div class="status-pick">${opts.map(o=>
         `<button type="button" class="status-pick-btn ${o.v===current?"cur":""}" data-v="${o.v}"><span class="sp-dot"></span>${o.label}${o.v===current?"<small>現在</small>":""}</button>`
       ).join("")}</div>
-      <button type="button" class="btn btn-soft" data-v="__cancel">キャンセル</button>
+      ${options.detailLabel
+        ? `<div class="sheet-actions">
+            <button type="button" class="btn btn-soft" data-v="__cancel">キャンセル</button>
+            <button type="button" class="btn btn-primary" data-v="__detail">${escapeHtml(options.detailLabel)}</button>
+          </div>`
+        : `<button type="button" class="btn btn-soft" data-v="__cancel">キャンセル</button>`}
     </div>`;
     const done=(v)=>{ ov.remove(); resolve(v); };
     ov.addEventListener("click",e=>{
