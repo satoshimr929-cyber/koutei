@@ -400,6 +400,10 @@
 
   /* 注意点の工程タグ */
   .note-tag{display:inline-block;font-size:11px;font-weight:700;color:#174ea6;background:#e8f0fe;border-radius:999px;padding:2px 9px;margin:0 4px 6px 0}
+  /* 作業リスト：追加した工程のチップ */
+  .proc-chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;min-height:20px}
+  .proc-chip{display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:700;color:#174ea6;background:#e8f0fe;border-radius:999px;padding:6px 8px 6px 12px}
+  .proc-chip button{border:none;background:none;color:inherit;font-size:15px;line-height:1;padding:0 3px;cursor:pointer}
   .note-share{font-size:11px;color:var(--ink-soft);margin-left:6px}
 
   /* 作業リスト（作業員側）の部屋ごと情報 */
@@ -1025,8 +1029,12 @@
       <select id="shareTo"><option value="">全員（宛先なし）</option></select>
     </div>
     <div class="field">
-      <label>工程で絞り込み（複数可。未選択なら全工程）</label>
-      <div class="tgt-box" id="shareProcs" style="max-height:200px"></div>
+      <label>送る工程（1つずつ追加。未追加なら全工程）</label>
+      <div style="display:flex;gap:8px;align-items:stretch">
+        <select id="shareProcSel" style="flex:1;min-width:0"></select>
+        <button type="button" class="btn-mini" id="shareProcAdd" style="width:auto;flex:0 0 auto;padding:0 16px">＋ 追加</button>
+      </div>
+      <div class="proc-chips" id="shareProcChips"></div>
     </div>
     <div class="field">
       <label>部屋で絞り込み（フロアの「全室」で一括。未選択なら全部屋）</label>
@@ -4259,23 +4267,32 @@ function loadShareList(){
 function saveShareList(obj){
   try{ localStorage.setItem(SHARE_KEY,JSON.stringify(obj)); }catch(e){ toast("保存できませんでした"); }
 }
-function openShareMake(){
-  // 工程の絞り込み（チェックボックスで複数選択。未選択なら全工程）
-  const box=el("shareProcs");
-  let h="";
-  const mkGroup=(label,procs)=>{
-    if(!procs.length) return;
-    h+=`<div class="tgt-floor"><label class="tgt-head"><input type="checkbox" class="share-proc-all"><b>${escapeHtml(label)}</b><span>全部</span></label><div class="tgt-rooms">`;
-    procs.forEach(p=>{ h+=`<label class="tgt-room"><input type="checkbox" class="share-proc-cb" value="${p.id}"> ${escapeHtml(p.name)}</label>`; });
-    h+=`</div></div>`;
+/* 作業リストに入れる工程（1つずつ追加していく方式）。空なら全工程 */
+let shareProcPicked=[];
+function shareProcRefresh(){
+  const sel=el("shareProcSel");
+  const mkOpts=(label,procs)=>{
+    const rest=procs.filter(p=>!shareProcPicked.includes(p.id));
+    if(!rest.length) return "";
+    return `<optgroup label="${escapeHtml(label)}">${rest.map(p=>`<option value="${p.id}">${escapeHtml(p.name)}</option>`).join("")}</optgroup>`;
   };
-  mkGroup("住戸用の工程",procList());
-  mkGroup("共用部用の工程",commonProcList());
-  box.innerHTML = h || `<div class="empty" style="padding:10px">工程がまだ登録されていません</div>`;
-  box.querySelectorAll(".tgt-floor").forEach(g=>{
-    const all=g.querySelector(".share-proc-all");
-    all.addEventListener("change",()=>{ g.querySelectorAll(".share-proc-cb").forEach(cb=>cb.checked=all.checked); });
-  });
+  const opts=mkOpts("住戸用の工程",procList())+mkOpts("共用部用の工程",commonProcList());
+  sel.innerHTML = opts || `<option value="">（追加できる工程がありません）</option>`;
+  sel.disabled=!opts;
+  el("shareProcAdd").disabled=!opts;
+  const chips=el("shareProcChips");
+  chips.innerHTML = shareProcPicked.map(pid=>{
+    const p=findProcAny(pid); if(!p) return "";
+    return `<span class="proc-chip">${escapeHtml(p.name)}<button type="button" data-pid="${escapeHtml(pid)}" aria-label="この工程を外す">×</button></span>`;
+  }).join("") || `<span class="hint">未追加のため、すべての工程が対象です</span>`;
+  chips.querySelectorAll("button").forEach(b=>b.addEventListener("click",()=>{
+    shareProcPicked=shareProcPicked.filter(x=>x!==b.dataset.pid);
+    shareProcRefresh();
+  }));
+}
+function openShareMake(){
+  shareProcPicked=[];
+  shareProcRefresh();
   renderTargets(el("shareTargets"), null);
   shareCandidates=[];
   pendingTaskListData=null;
@@ -4910,8 +4927,14 @@ el("shareImportBtn").addEventListener("click",openTaskListPicker);
 el("drawerShareMake").addEventListener("click",()=>{ closeDrawer(); openShareMake(); });
 el("drawerTaskLists").addEventListener("click",()=>{ closeDrawer(); openTaskListPicker(); });
 el("drawerReportList").addEventListener("click",()=>{ closeDrawer(); openReportList(); });
+el("shareProcAdd").addEventListener("click",()=>{
+  const v=el("shareProcSel").value;
+  if(!v) return;
+  if(!shareProcPicked.includes(v)) shareProcPicked.push(v);
+  shareProcRefresh();
+});
 el("shareFilterBtn").addEventListener("click",()=>{
-  const pids=[...el("shareProcs").querySelectorAll(".share-proc-cb:checked")].map(cb=>cb.value);
+  const pids=shareProcPicked.slice();
   const ids=getSelectedTargets(el("shareTargets"), null);
   shareCandidates=collectShareCandidates(pids, ids);
   el("shareCandWrap").style.display="";
