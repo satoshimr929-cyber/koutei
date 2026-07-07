@@ -492,10 +492,12 @@
     max-height:calc(100vh - 210px);max-height:calc(100dvh - 210px);min-height:200px}
   .sch-table{border-collapse:separate;border-spacing:0;font-size:12px}
   .sch-table th,.sch-table td{padding:0;margin:0}
-  /* ヘッダ行（工程名）：表の内部スクロールの上部に固定 */
+  /* ヘッダ行（工程名）：表の内部スクロールの上部に固定。
+     列幅は全部おなじに揃え、長い工程名は折り返して表示する */
   .sch-table thead th{position:sticky;top:0;z-index:2;background:#f1f3f4;color:var(--ink-soft);
     font-weight:700;border-bottom:1px solid var(--line-strong);border-left:1px solid var(--line);
-    height:44px;min-width:46px;padding:4px 6px;white-space:nowrap;text-align:center;vertical-align:middle}
+    height:44px;width:64px;min-width:64px;max-width:64px;padding:4px 3px;font-size:11px;line-height:1.25;
+    white-space:normal;word-break:break-all;text-align:center;vertical-align:middle}
   /* 左上の角（部屋見出し）：縦横どちらのスクロールでも固定 */
   .sch-table thead th.sch-corner{position:sticky;left:0;z-index:3;background:#f1f3f4;text-align:left;
     min-width:74px;max-width:74px;border-left:none}
