@@ -400,10 +400,6 @@
 
   /* 注意点の工程タグ */
   .note-tag{display:inline-block;font-size:11px;font-weight:700;color:#174ea6;background:#e8f0fe;border-radius:999px;padding:2px 9px;margin:0 4px 6px 0}
-  /* 作業リスト：追加した工程のチップ */
-  .proc-chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;min-height:20px}
-  .proc-chip{display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:700;color:#174ea6;background:#e8f0fe;border-radius:999px;padding:6px 8px 6px 12px}
-  .proc-chip button{border:none;background:none;color:inherit;font-size:15px;line-height:1;padding:0 3px;cursor:pointer}
   .note-share{font-size:11px;color:var(--ink-soft);margin-left:6px}
 
   /* 作業リスト（作業員側）の部屋ごと情報 */
@@ -1029,18 +1025,14 @@
       <select id="shareTo"><option value="">全員（宛先なし）</option></select>
     </div>
     <div class="field">
-      <label>送る工程（1つずつ追加。未追加なら全工程）</label>
-      <div style="display:flex;gap:8px;align-items:stretch">
-        <select id="shareProcSel" style="flex:1;min-width:0"></select>
-        <button type="button" class="btn-mini" id="shareProcAdd" style="width:auto;flex:0 0 auto;padding:0 16px">＋ 追加</button>
-      </div>
-      <div class="proc-chips" id="shareProcChips"></div>
+      <label>工程</label>
+      <select id="shareProcSel"></select>
     </div>
     <div class="field">
-      <label>部屋で絞り込み（フロアの「全室」で一括。未選択なら全部屋）</label>
+      <label>この工程を渡すフロア・部屋（「全室」で一括。未選択なら全部屋）</label>
       <div class="tgt-box" id="shareTargets"></div>
     </div>
-    <button class="btn btn-soft" id="shareFilterBtn" style="margin-bottom:14px">この条件で未完了を出す</button>
+    <button class="btn btn-soft" id="shareAddBtn" style="margin-bottom:14px">＋ この工程を作業リストに追加</button>
     <div id="shareCandWrap" style="display:none">
       <div class="preview" id="shareCandInfo"></div>
       <div style="display:flex;gap:8px;margin-bottom:10px">
@@ -4230,14 +4222,14 @@ function refreshShareInfo(){
     if(info) rooms[lid]=info;
   });
   pendingTaskListData = sel.length ? { t:"list", site:db.site.name||"現場", at:Date.now(), items:sel, rooms } : null;
-  el("shareCandInfo").textContent = `選択 ${sel.length} / 未完了 ${shareCandidates.length}件`;
+  el("shareCandInfo").textContent = `送る ${sel.length}件 / リスト ${shareCandidates.length}件`;
   const sendBtn=el("shareSendBtn");
   if(sendBtn) sendBtn.disabled = !pendingTaskListData;
 }
 function renderShareCandidates(){
   const box=el("shareCandList");
   if(shareCandidates.length===0){
-    box.innerHTML=`<div class="empty">条件に合う未完了がありません。</div>`;
+    box.innerHTML=`<div class="empty">まだ作業がありません。工程とフロア・部屋を選んで追加してください。</div>`;
     refreshShareInfo(); return;
   }
   const groups={}, order=[];
@@ -4267,32 +4259,17 @@ function loadShareList(){
 function saveShareList(obj){
   try{ localStorage.setItem(SHARE_KEY,JSON.stringify(obj)); }catch(e){ toast("保存できませんでした"); }
 }
-/* 作業リストに入れる工程（1つずつ追加していく方式）。空なら全工程 */
-let shareProcPicked=[];
-function shareProcRefresh(){
-  const sel=el("shareProcSel");
-  const mkOpts=(label,procs)=>{
-    const rest=procs.filter(p=>!shareProcPicked.includes(p.id));
-    if(!rest.length) return "";
-    return `<optgroup label="${escapeHtml(label)}">${rest.map(p=>`<option value="${p.id}">${escapeHtml(p.name)}</option>`).join("")}</optgroup>`;
-  };
-  const opts=mkOpts("住戸用の工程",procList())+mkOpts("共用部用の工程",commonProcList());
-  sel.innerHTML = opts || `<option value="">（追加できる工程がありません）</option>`;
-  sel.disabled=!opts;
-  el("shareProcAdd").disabled=!opts;
-  const chips=el("shareProcChips");
-  chips.innerHTML = shareProcPicked.map(pid=>{
-    const p=findProcAny(pid); if(!p) return "";
-    return `<span class="proc-chip">${escapeHtml(p.name)}<button type="button" data-pid="${escapeHtml(pid)}" aria-label="この工程を外す">×</button></span>`;
-  }).join("") || `<span class="hint">未追加のため、すべての工程が対象です</span>`;
-  chips.querySelectorAll("button").forEach(b=>b.addEventListener("click",()=>{
-    shareProcPicked=shareProcPicked.filter(x=>x!==b.dataset.pid);
-    shareProcRefresh();
-  }));
-}
 function openShareMake(){
-  shareProcPicked=[];
-  shareProcRefresh();
+  // 工程を1つ選び、渡すフロア・部屋を決めて「追加」で作業リストに積み上げていく
+  const unitOpts=procList().map(p=>`<option value="${p.id}">${escapeHtml(p.name)}</option>`).join("");
+  const commonOpts=commonProcList().map(p=>`<option value="${p.id}">${escapeHtml(p.name)}</option>`).join("");
+  let h="";
+  if(unitOpts) h+=`<optgroup label="住戸用の工程">${unitOpts}</optgroup>`;
+  if(commonOpts) h+=`<optgroup label="共用部用の工程">${commonOpts}</optgroup>`;
+  h+=`<option value="__all__">（全工程まとめて）</option>`;
+  el("shareProcSel").innerHTML=h;
+  const first=procList()[0]||commonProcList()[0];
+  el("shareProcSel").value = first ? first.id : "__all__";
   renderTargets(el("shareTargets"), null);
   shareCandidates=[];
   pendingTaskListData=null;
@@ -4927,18 +4904,23 @@ el("shareImportBtn").addEventListener("click",openTaskListPicker);
 el("drawerShareMake").addEventListener("click",()=>{ closeDrawer(); openShareMake(); });
 el("drawerTaskLists").addEventListener("click",()=>{ closeDrawer(); openTaskListPicker(); });
 el("drawerReportList").addEventListener("click",()=>{ closeDrawer(); openReportList(); });
-el("shareProcAdd").addEventListener("click",()=>{
-  const v=el("shareProcSel").value;
-  if(!v) return;
-  if(!shareProcPicked.includes(v)) shareProcPicked.push(v);
-  shareProcRefresh();
-});
-el("shareFilterBtn").addEventListener("click",()=>{
-  const pids=shareProcPicked.slice();
+el("shareAddBtn").addEventListener("click",()=>{
+  const pid=el("shareProcSel").value;
   const ids=getSelectedTargets(el("shareTargets"), null);
-  shareCandidates=collectShareCandidates(pids, ids);
+  const add=collectShareCandidates(pid==="__all__"?[]:[pid], ids);
+  // すでにリストにある部屋×工程は二重に足さない
+  const seen=new Set(shareCandidates.map(c=>c.item.lid+"|"+c.item.pid));
+  let added=0, dup=0;
+  add.forEach(c=>{
+    const k=c.item.lid+"|"+c.item.pid;
+    if(seen.has(k)){ dup++; return; }
+    seen.add(k); shareCandidates.push(c); added++;
+  });
+  if(!added){ toast(dup?"この条件の作業はすべて追加済みです":"この条件の未完了はありません"); return; }
   el("shareCandWrap").style.display="";
   renderShareCandidates();
+  const p=findProcAny(pid);
+  toast(`${p?p.name:"全工程"} ${added}件を追加しました${dup?`（追加済み ${dup}件は省略）`:""}`);
 });
 el("shareSelAll").addEventListener("click",()=>{ shareCandidates.forEach(c=>c.sel=true); renderShareCandidates(); });
 el("shareSelNone").addEventListener("click",()=>{ shareCandidates.forEach(c=>c.sel=false); renderShareCandidates(); });
