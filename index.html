@@ -156,6 +156,7 @@
   .note-top{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
   .note-text{font-size:14px;white-space:pre-wrap;word-break:break-word;flex:1}
   .note-del{background:none;border:none;color:var(--danger);font-size:12px;padding:2px 4px;flex:0 0 auto}
+  .note-edit{background:none;border:none;color:var(--accent-press);font-size:12px;padding:2px 4px;flex:0 0 auto}
   .note-photos{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:10px}
   .note-photos img{width:100%;aspect-ratio:1;object-fit:cover;border-radius:7px;background:#e5e9ee}
 
@@ -398,7 +399,7 @@
   .tgt-box input[type=checkbox]{width:18px;height:18px;flex:0 0 auto}
 
   /* 注意点の工程タグ */
-  .note-tag{display:inline-block;font-size:11px;font-weight:700;color:#174ea6;background:#e8f0fe;border-radius:999px;padding:2px 9px;margin-bottom:6px}
+  .note-tag{display:inline-block;font-size:11px;font-weight:700;color:#174ea6;background:#e8f0fe;border-radius:999px;padding:2px 9px;margin:0 4px 6px 0}
   .note-share{font-size:11px;color:var(--ink-soft);margin-left:6px}
 
   /* 作業リスト（作業員側）の部屋ごと情報 */
@@ -939,10 +940,10 @@
 <!-- 注意点モーダル -->
 <div class="modal" id="noteModal">
   <div class="sheet">
-    <h3>注意点を追加</h3>
+    <h3 id="noteModalTitle">注意点を追加</h3>
     <div class="field">
-      <label>関連する工程（任意）</label>
-      <select id="inNoteProc"></select>
+      <label>関連する工程（任意・複数可）</label>
+      <div class="tgt-box" id="inNoteProcs" style="max-height:180px"></div>
     </div>
     <div class="field">
       <label>内容</label>
@@ -1134,7 +1135,9 @@ function normalizeDb(){
   // 注意点を locationIds（複数部屋共有）に正規化
   db.notes.forEach(n=>{
     if(!Array.isArray(n.locationIds)) n.locationIds = n.locationId ? [n.locationId] : [];
-    if(!("processId" in n)) n.processId=null;
+    // 工程の紐付けを複数対応（processIds）。旧データの processId から引き継ぐ
+    if(!Array.isArray(n.processIds)) n.processIds = n.processId ? [n.processId] : [];
+    n.processId = n.processIds[0]||null; // 旧バージョンの端末が読んでも壊れないよう残す
   });
   // 部屋にタイプ名とオプション変更メモの欄を用意（既存データの移行）
   db.locations.forEach(l=>{
@@ -2384,13 +2387,14 @@ function renderDetail(){
     nl.innerHTML="";
     notes.forEach(n=>{
       const w=document.createElement("div"); w.className="note";
-      const proc = n.processId ? findProcAny(n.processId) : null;
-      const tag = proc ? `<span class="note-tag">${escapeHtml(proc.name)}</span>` : "";
+      const procs=(n.processIds||[]).map(pid=>findProcAny(pid)).filter(Boolean);
+      const tag = procs.map(p=>`<span class="note-tag">${escapeHtml(p.name)}</span>`).join("");
       const cnt=(n.locationIds||[]).length;
       const share = cnt>1 ? `<span class="note-share">他${cnt-1}部屋と共通</span>` : "";
       const ph=(n.photos&&n.photos.length)?`<div class="note-photos">${n.photos.map(p=>`<img src="${p}">`).join("")}</div>`:"";
-      w.innerHTML=`${tag}${share}<div class="note-top"><div class="note-text">${escapeHtml(n.text)}</div><button class="note-del">削除</button></div>${ph}`;
+      w.innerHTML=`${tag}${share}<div class="note-top"><div class="note-text">${escapeHtml(n.text)}</div><button class="note-edit">編集</button><button class="note-del">削除</button></div>${ph}`;
       w.querySelectorAll(".note-photos img").forEach(img=>img.addEventListener("click",()=>openLightbox(img.src)));
+      w.querySelector(".note-edit").addEventListener("click",()=>openNoteModal(n));
       w.querySelector(".note-del").addEventListener("click",()=>{
         const msg = cnt>1 ? "この部屋からこの注意点を外しますか？（他の部屋には残ります）" : "この注意点を削除しますか？";
         uiConfirm(msg).then(ok=>{ if(!ok) return;
@@ -2402,7 +2406,7 @@ function renderDetail(){
       nl.appendChild(w);
     });
   }
-  el("addNoteBtn").addEventListener("click",openNoteModal);
+  el("addNoteBtn").addEventListener("click",()=>openNoteModal());
   el("delLocBtn").addEventListener("click",()=>{
     uiConfirm("この部屋を削除します。よろしいですか？").then(ok=>{
       if(!ok) return;
@@ -2907,7 +2911,10 @@ function resetProcessesToDefault(){
     if(l.kind==="common") return;
     if(l.progress) Object.keys(l.progress).forEach(pid=>{ if(!keep.has(pid)) delete l.progress[pid]; });
   });
-  db.notes.forEach(n=>{ if(n.processId && !keep.has(n.processId) && !keepCommon.has(n.processId)) n.processId=null; });
+  db.notes.forEach(n=>{
+    n.processIds=(n.processIds||[]).filter(pid=>keep.has(pid)||keepCommon.has(pid));
+    n.processId=n.processIds[0]||null;
+  });
   save();
 }
 
@@ -3209,20 +3216,34 @@ function getSelectedTargets(container, lockedId){
 /* =========================================================
    注意点モーダル / 写真
    ========================================================= */
-function openNoteModal(){
-  notePhotosBuffer=[]; el("inNote").value="";
-  // 工程セレクト（今の部屋の種別に合わせる）
+let noteEditId=null;        // 編集中の注意点ID（nullなら新規追加）
+let noteEditOrigPhotos=[];  // 編集開始時点の写真（キャンセル時に消さないための控え）
+function openNoteModal(editNote){
+  noteEditId = editNote ? editNote.id : null;
+  noteEditOrigPhotos = editNote ? (editNote.photos||[]).slice() : [];
+  notePhotosBuffer = editNote ? (editNote.photos||[]).slice() : [];
+  el("inNote").value = editNote ? (editNote.text||"") : "";
+  el("noteModalTitle").textContent = editNote ? "注意点を編集" : "注意点を追加";
+  // 工程チェックボックス（今の部屋の種別に合わせる。複数選択可）
   const curLoc=db.locations.find(l=>l.id===currentLocId);
-  const sel=el("inNoteProc");
-  sel.innerHTML=`<option value="">（工程に紐づけない）</option>`+procListFor(curLoc).map(p=>`<option value="${p.id}">${escapeHtml(p.name)}</option>`).join("");
-  sel.value="";
-  // 適用範囲（今の部屋は固定で選択）
+  const selIds = editNote ? (editNote.processIds||[]) : [];
+  const procBox=el("inNoteProcs");
+  const procs=procListFor(curLoc);
+  procBox.innerHTML = procs.length
+    ? procs.map(p=>`<label class="tgt-room"><input type="checkbox" class="note-proc-cb" value="${p.id}" ${selIds.includes(p.id)?"checked":""}> ${escapeHtml(p.name)}</label>`).join("")
+    : `<div class="empty" style="padding:10px">工程がまだ登録されていません</div>`;
+  // 適用範囲（今の部屋は固定で選択。編集時は登録済みの部屋にチェック）
   renderTargets(el("noteTargets"), currentLocId);
+  if(editNote){
+    el("noteTargets").querySelectorAll(".tgt-cb").forEach(cb=>{
+      if((editNote.locationIds||[]).includes(cb.value)) cb.checked=true;
+    });
+  }
   // 工程を選んだら、その工程が無い種別の部屋は選べないようにする（整合）
   const curKind = (curLoc && curLoc.kind==="common") ? "common" : "unit";
   const otherKind = curKind==="common" ? "unit" : "common";
   const applyNoteProcFilter=()=>{
-    const tied=!!sel.value;
+    const tied=!!procBox.querySelector(".note-proc-cb:checked");
     el("noteTargets").querySelectorAll('.tgt-cb[data-kind="'+otherKind+'"]').forEach(cb=>{
       const row=cb.closest(".tgt-room");
       if(tied){ cb.checked=false; cb.disabled=true; if(row) row.style.opacity=".4"; }
@@ -3234,7 +3255,7 @@ function openNoteModal(){
       else{ hint.style.display="none"; hint.textContent=""; }
     }
   };
-  sel.onchange=applyNoteProcFilter;
+  procBox.querySelectorAll(".note-proc-cb").forEach(cb=>cb.addEventListener("change",applyNoteProcFilter));
   applyNoteProcFilter();
   // 同じタイプ（住戸）／同じ名前（共用部）をまとめて選択
   const sameBtn=el("noteSameType");
@@ -3266,28 +3287,46 @@ function openNoteModal(){
   refreshNotePhotoGrid(); el("noteModal").classList.add("active");
 }
 function closeNoteModal(){ el("noteModal").classList.remove("active"); }
-/* キャンセル時：アップロード済みの写真をクラウドから片付けてから閉じる */
+/* キャンセル時：今回新しく上げた写真だけクラウドから片付けてから閉じる（編集前からの写真は残す） */
 function cancelNoteModal(){
-  deleteCloudPhotos(notePhotosBuffer);
+  deleteCloudPhotos(notePhotosBuffer.filter(p=>!noteEditOrigPhotos.includes(p)));
   notePhotosBuffer=[];
   closeNoteModal();
 }
 function refreshNotePhotoGrid(){
   renderPhotoGrid(el("notePhotoGrid"),notePhotosBuffer,{
     onAdd:()=>{ pickerTarget="notePhoto"; el("filePicker").click(); },
-    onDelete:(i)=>{ deleteCloudPhotos([notePhotosBuffer[i]]); notePhotosBuffer.splice(i,1); refreshNotePhotoGrid(); }
+    onDelete:(i)=>{
+      const p=notePhotosBuffer[i];
+      // 編集前からある写真は保存を押すまで消さない（キャンセルで元に戻せるように）
+      if(!noteEditOrigPhotos.includes(p)) deleteCloudPhotos([p]);
+      notePhotosBuffer.splice(i,1); refreshNotePhotoGrid();
+    }
   });
 }
 el("noteSave").addEventListener("click",()=>{
   const text=el("inNote").value.trim();
   if(!text&&notePhotosBuffer.length===0){ toast("内容か写真を入れてください"); return; }
   const targets=getSelectedTargets(el("noteTargets"), currentLocId);
-  db.notes.push({
-    id:uid(), locationIds:targets, processId:el("inNoteProc").value||null,
-    text, photos:notePhotosBuffer.slice(), createdAt:Date.now()
-  });
-  save(); closeNoteModal(); renderDetail();
-  toast(targets.length>1 ? `${targets.length}部屋に注意点を登録しました` : "注意点を追加しました");
+  const pids=[...el("inNoteProcs").querySelectorAll(".note-proc-cb:checked")].map(cb=>cb.value);
+  if(noteEditId){
+    const n=db.notes.find(x=>x.id===noteEditId);
+    if(n){
+      // 編集で外した既存写真をこのタイミングでクラウドから削除
+      deleteCloudPhotos(noteEditOrigPhotos.filter(p=>!notePhotosBuffer.includes(p)));
+      n.text=text; n.processIds=pids; n.processId=pids[0]||null;
+      n.locationIds=targets; n.photos=notePhotosBuffer.slice(); n.updatedAt=Date.now();
+    }
+    save(); closeNoteModal(); renderDetail();
+    toast("注意点を更新しました");
+  }else{
+    db.notes.push({
+      id:uid(), locationIds:targets, processIds:pids, processId:pids[0]||null,
+      text, photos:notePhotosBuffer.slice(), createdAt:Date.now()
+    });
+    save(); closeNoteModal(); renderDetail();
+    toast(targets.length>1 ? `${targets.length}部屋に注意点を登録しました` : "注意点を追加しました");
+  }
 });
 el("noteCancel").addEventListener("click",cancelNoteModal);
 
@@ -4137,16 +4176,21 @@ function shareItemFromLocProc(loc,p){
   };
 }
 /* 部屋ごとの付帯情報を共有用に取り出す（写真は枚数だけ＝ダミー）。
-   本体データ構造には触れない。情報が無ければ null を返す。 */
-function shareRoomInfo(loc){
+   本体データ構造には触れない。情報が無ければ null を返す。
+   pids（リストに含まれる工程IDのSet）を渡すと、紐付け無しの注意点と
+   その工程に紐付いた注意点だけを同梱する。 */
+function shareRoomInfo(loc, pids){
   if(!loc) return null;
   const info={};
   const om=(loc.optionMemo||"").trim();
   if(om) info.om=om;
-  const ns=notesFor(loc).map(n=>{
-    const p=n.processId?findProcAny(n.processId):null;
+  const ns=notesFor(loc).filter(n=>{
+    const ids=n.processIds||[];
+    return ids.length===0 || !pids || ids.some(pid=>pids.has(pid));
+  }).map(n=>{
+    const names=(n.processIds||[]).map(pid=>{ const p=findProcAny(pid); return p?p.name:""; }).filter(Boolean);
     const nph=(n.photos||[]).filter(isCloudPhoto); // クラウド写真だけURLで同梱（Base64は重いので載せない）
-    const o={ x:n.text, p:p?p.name:"" };
+    const o={ x:n.text, p:names.join("・") };
     if(nph.length) o.ph=nph;
     return o;
   });
@@ -4170,11 +4214,12 @@ function collectShareCandidates(pid, ids){
 }
 function refreshShareInfo(){
   const sel=shareCandidates.filter(c=>c.sel).map(c=>c.item);
-  const rooms={}, seen=new Set();
-  sel.forEach(it=>{
-    if(seen.has(it.lid)) return; seen.add(it.lid);
-    const info=shareRoomInfo(db.locations.find(l=>l.id===it.lid));
-    if(info) rooms[it.lid]=info;
+  // 部屋ごとに「リストに入れた工程」を集め、関係する注意点だけを同梱する
+  const rooms={}, pidsByRoom={};
+  sel.forEach(it=>{ (pidsByRoom[it.lid]=pidsByRoom[it.lid]||new Set()).add(it.pid); });
+  Object.keys(pidsByRoom).forEach(lid=>{
+    const info=shareRoomInfo(db.locations.find(l=>l.id===lid), pidsByRoom[lid]);
+    if(info) rooms[lid]=info;
   });
   pendingTaskListData = sel.length ? { t:"list", site:db.site.name||"現場", at:Date.now(), items:sel, rooms } : null;
   el("shareCandInfo").textContent = `選択 ${sel.length} / 未完了 ${shareCandidates.length}件`;
@@ -4258,9 +4303,6 @@ function renderShareRoomInfo(ri){
     });
     h+=`</div>`;
   }
-  if(ri.om){
-    h+=`<div class="sh-info sh-opt"><div class="sh-info-h">🔧 オプション変更</div><div class="sh-info-row">${escapeHtml(ri.om)}</div></div>`;
-  }
   if(ri.ph&&ri.ph.length){
     const rest=(ri.pc||0)-ri.ph.length;
     h+=`<div class="sh-info sh-photo"><div class="sh-info-h">📷 参考写真 ${ri.ph.length}枚（タップで拡大）</div>
@@ -4268,6 +4310,9 @@ function renderShareRoomInfo(ri){
       ${rest>0?`<div style="margin-top:4px">ほか ${rest}枚は職長の端末内のみ（クラウド未移行）</div>`:""}</div>`;
   }else if(ri.pc){
     h+=`<div class="sh-info sh-photo">📷 参考写真 ${ri.pc}枚（クラウド未移行のため、この端末では見られません）</div>`;
+  }
+  if(ri.om){
+    h+=`<div class="sh-info sh-opt"><div class="sh-info-h">🔧 オプション変更</div><div class="sh-info-row">${escapeHtml(ri.om)}</div></div>`;
   }
   return h;
 }
@@ -4303,9 +4348,6 @@ function renderShareList(){
       const roomName=byRoom[rk][0].it.ln;
       html+=`<div class="card"><div style="padding:12px">`;
       html+=`<div style="font-weight:700;margin-bottom:8px">${escapeHtml(roomName)}</div>`;
-      html+=renderShareRoomInfo(rooms[rk]);
-      html+=`<div class="sh-info"><div class="sh-info-h">📷 作業後の写真（完了報告と一緒に職長へ届きます）</div>
-        <div class="photo-grid sh-rp-grid" data-lid="${escapeHtml(rk)}"></div></div>`;
       byRoom[rk].forEach(({it,ix})=>{
         const st=it.st||(it.done?"done":"todo");
         const stBadge=st==="done"?`<span class="due-badge b-done">完了</span>`
@@ -4323,6 +4365,9 @@ function renderShareList(){
         html+=`<button type="button" class="sh-rem-add" data-ix="${ix}" style="border:none;background:none;color:var(--accent-press);font-size:13px;padding:4px 2px 2px">＋ 残工事を追加</button>`;
         html+=`</div>`;
       });
+      html+=renderShareRoomInfo(rooms[rk]);
+      html+=`<div class="sh-info"><div class="sh-info-h">📷 作業後の写真（完了報告と一緒に職長へ届きます）</div>
+        <div class="photo-grid sh-rp-grid" data-lid="${escapeHtml(rk)}"></div></div>`;
       html+=`</div></div>`;
     });
   });
