@@ -1612,6 +1612,7 @@ let byprocCollapsed=new Set();
    - マス目タップで pickStatus を開き、未着手/施工中/完了 を変更・保存
    ========================================================= */
 let scheduleKind="unit"; // "unit"=住戸 / "common"=共用部
+let schScrollKeep=null;  // 進捗変更の再描画でスクロール位置を左上に戻さないための控え
 function goSchedule(){ renderSchedule(); showView("schedule"); }
 function renderSchedule(){
   const v=el("viewSchedule");
@@ -1679,6 +1680,12 @@ function renderSchedule(){
     <span><i class="todo over"></i>期限切れ</span>
   </div>`;
   v.innerHTML=html;
+  // 進捗変更後の再描画では、直前のスクロール位置に戻す
+  if(schScrollKeep){
+    const sc=v.querySelector(".sch-scroll");
+    if(sc){ sc.scrollLeft=schScrollKeep.left; sc.scrollTop=schScrollKeep.top; }
+    schScrollKeep=null;
+  }
   wireKind();
   // マス目タップ → 状態変更
   v.querySelectorAll(".sch-cell:not(.na)").forEach(cell=>cell.addEventListener("click",()=>{
@@ -1688,7 +1695,12 @@ function renderSchedule(){
     const cur=getProg(l,pid).status||"todo";
     pickStatus(cur, l.name+" の進捗", {detailLabel:"部屋の詳細"}).then(val=>{
       if(val==="__detail"){ openDetail(l.id); return; }
-      if(val && val!==cur){ setProg(l,pid,{status:val}); l.updatedAt=Date.now(); save(); renderSchedule(); }
+      if(val && val!==cur){
+        setProg(l,pid,{status:val}); l.updatedAt=Date.now(); save();
+        const sc=v.querySelector(".sch-scroll");
+        schScrollKeep = sc ? {left:sc.scrollLeft, top:sc.scrollTop} : null;
+        renderSchedule();
+      }
     });
   }));
 }
