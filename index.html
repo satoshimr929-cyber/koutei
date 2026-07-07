@@ -591,6 +591,12 @@
   .bar-full-close{display:inline-flex;align-items:center;gap:4px;background:var(--accent);border:none;color:#fff;
     font-weight:700;font-size:12px;border-radius:16px;padding:5px 12px;cursor:pointer}
   .bar-full-close:active{background:var(--accent-press)}
+  /* 進捗表の全画面表示（バーチャートと同じ方式） */
+  #viewSchedule.sch-full{position:fixed;inset:0;z-index:60;background:var(--panel);margin:0;
+    padding:calc(env(safe-area-inset-top) + 4px) 6px calc(env(safe-area-inset-bottom) + 4px);
+    display:flex;flex-direction:column;overflow:hidden}
+  #viewSchedule.sch-full .bar-full-bar{flex:0 0 auto;display:flex;justify-content:flex-end;margin:0 0 4px}
+  #viewSchedule.sch-full .sch-scroll{flex:1 1 auto;max-height:none;min-height:0;margin-top:0}
   /* === ボトムナビ（Google Drive 風） === */
   #dueBtn,#byprocBtn,#shareBtns{display:none !important}
   .botnav{position:fixed;left:0;right:0;bottom:0;z-index:40;display:none;
@@ -1613,22 +1619,41 @@ let byprocCollapsed=new Set();
    ========================================================= */
 let scheduleKind="unit"; // "unit"=住戸 / "common"=共用部
 let schScrollKeep=null;  // 進捗変更の再描画でスクロール位置を左上に戻さないための控え
-function goSchedule(){ renderSchedule(); showView("schedule"); }
+let schFull=false;       // 進捗表の全画面表示（横持ちで見やすい）
+function goSchedule(){ schFull=false; renderSchedule(); showView("schedule"); }
 function renderSchedule(){
   const v=el("viewSchedule");
   const kind=scheduleKind;
+  const full=schFull;
   const procs = kind==="common" ? commonProcList() : procList();
   const wireKind=()=>{
+    v.classList.toggle("sch-full", full); // 全画面表示のオン/オフ
     v.querySelectorAll(".tab-btn[data-sk]").forEach(b=>b.addEventListener("click",()=>{
       scheduleKind=b.dataset.sk; renderSchedule(); window.scrollTo(0,0);
     }));
+    const fb=el("schFullBtn");
+    if(fb) fb.addEventListener("click",()=>{
+      schFull=!schFull;
+      // 対応ブラウザ（Android Chrome等）ではブラウザのフルスクリーンも呼び、アドレスバーごと隠す
+      if(schFull) barReqBrowserFull(); else barExitBrowserFull();
+      renderSchedule();
+    });
   };
-  let html=`<div class="detail-title-row"><div class="detail-title">進捗表</div></div>
-    <div class="detail-sub">部屋（縦）×工程（横）の一覧です。マスをタップして進捗の変更や、部屋の詳細をひらけます。横にスクロールできます。</div>
-    <div class="tabs">
-      <button type="button" class="tab-btn ${kind==="unit"?"active":""}" data-sk="unit">住戸</button>
-      <button type="button" class="tab-btn ${kind==="common"?"active":""}" data-sk="common">共用部</button>
-    </div>`;
+  let html="";
+  if(full){
+    // 全画面：表を最大化。タイトル・タブ・凡例は隠し、閉じるボタンだけ小さく右上に
+    html+=`<div class="bar-full-bar"><button type="button" class="bar-full-close" id="schFullBtn">✕ 閉じる</button></div>`;
+  }else{
+    html+=`<div class="detail-title-row" style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+        <div class="detail-title">進捗表</div>
+        <button type="button" class="bar-mini-btn" id="schFullBtn">⛶ 全画面</button>
+      </div>
+      <div class="detail-sub">部屋（縦）×工程（横）の一覧です。マスをタップして進捗の変更や、部屋の詳細をひらけます。横にスクロールできます。</div>
+      <div class="tabs">
+        <button type="button" class="tab-btn ${kind==="unit"?"active":""}" data-sk="unit">住戸</button>
+        <button type="button" class="tab-btn ${kind==="common"?"active":""}" data-sk="common">共用部</button>
+      </div>`;
+  }
   if(procs.length===0){
     html+=`<div class="empty" style="margin-top:24px">${kind==="common"?"共用部":"住戸"}の工程がまだありません。設定の「工程」で追加してください。</div>`;
     v.innerHTML=html; wireKind(); return;
@@ -1673,12 +1698,14 @@ function renderSchedule(){
   });
   tbody+=`</tbody>`;
   html+=`<div class="sch-scroll"><table class="sch-table">${thead}${tbody}</table></div>`;
-  html+=`<div class="sch-legend">
-    <span><i class="done">✓</i>完了</span>
-    <span><i class="doing">△</i>施工中</span>
-    <span><i class="todo"></i>未着手</span>
-    <span><i class="todo over"></i>期限切れ</span>
-  </div>`;
+  if(!full){
+    html+=`<div class="sch-legend">
+      <span><i class="done">✓</i>完了</span>
+      <span><i class="doing">△</i>施工中</span>
+      <span><i class="todo"></i>未着手</span>
+      <span><i class="todo over"></i>期限切れ</span>
+    </div>`;
+  }
   v.innerHTML=html;
   // 進捗変更後の再描画では、直前のスクロール位置に戻す
   if(schScrollKeep){
@@ -1792,6 +1819,7 @@ function barExitBrowserFull(){
 function barOnFsChange(){
   const isFs=!!(document.fullscreenElement||document.webkitFullscreenElement);
   if(!isFs && barFull){ barFull=false; const v=el("viewBar"); if(v&&v.classList.contains("active")) renderBar(); }
+  if(!isFs && schFull){ schFull=false; const v=el("viewSchedule"); if(v&&v.classList.contains("active")) renderSchedule(); }
 }
 document.addEventListener("fullscreenchange", barOnFsChange);
 document.addEventListener("webkitfullscreenchange", barOnFsChange);
