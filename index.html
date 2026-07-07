@@ -1025,14 +1025,14 @@
       <select id="shareTo"><option value="">全員（宛先なし）</option></select>
     </div>
     <div class="field">
-      <label>工程で絞り込み</label>
-      <select id="shareProc"></select>
+      <label>工程</label>
+      <select id="shareProcSel"></select>
     </div>
     <div class="field">
-      <label>部屋で絞り込み（フロアの「全室」で一括。未選択なら全部屋）</label>
+      <label>この工程を渡すフロア・部屋（「全室」で一括。未選択なら全部屋）</label>
       <div class="tgt-box" id="shareTargets"></div>
     </div>
-    <button class="btn btn-soft" id="shareFilterBtn" style="margin-bottom:14px">この条件で未完了を出す</button>
+    <button class="btn btn-soft" id="shareAddBtn" style="margin-bottom:14px">＋ この工程を作業リストに追加</button>
     <div id="shareCandWrap" style="display:none">
       <div class="preview" id="shareCandInfo"></div>
       <div style="display:flex;gap:8px;margin-bottom:10px">
@@ -4201,12 +4201,12 @@ function shareRoomInfo(loc, pids){
   if(ph.length) info.ph=ph;
   return (info.om||info.notes||info.pc)?info:null;
 }
-function collectShareCandidates(pid, ids){
+function collectShareCandidates(pids, ids){
   const out=[];
   db.locations.forEach(loc=>{
     if(ids && ids.length && !ids.includes(loc.id)) return; // 部屋未選択なら全部屋
     procListFor(loc).forEach(p=>{
-      if(pid && pid!=="__all__" && p.id!==pid) return;
+      if(pids && pids.length && !pids.includes(p.id)) return; // 工程未選択なら全工程
       if(getProg(loc,p.id).status!=="done") out.push({item:shareItemFromLocProc(loc,p),sel:true});
     });
   });
@@ -4222,14 +4222,14 @@ function refreshShareInfo(){
     if(info) rooms[lid]=info;
   });
   pendingTaskListData = sel.length ? { t:"list", site:db.site.name||"現場", at:Date.now(), items:sel, rooms } : null;
-  el("shareCandInfo").textContent = `選択 ${sel.length} / 未完了 ${shareCandidates.length}件`;
+  el("shareCandInfo").textContent = `送る ${sel.length}件 / リスト ${shareCandidates.length}件`;
   const sendBtn=el("shareSendBtn");
   if(sendBtn) sendBtn.disabled = !pendingTaskListData;
 }
 function renderShareCandidates(){
   const box=el("shareCandList");
   if(shareCandidates.length===0){
-    box.innerHTML=`<div class="empty">条件に合う未完了がありません。</div>`;
+    box.innerHTML=`<div class="empty">まだ作業がありません。工程とフロア・部屋を選んで追加してください。</div>`;
     refreshShareInfo(); return;
   }
   const groups={}, order=[];
@@ -4260,12 +4260,16 @@ function saveShareList(obj){
   try{ localStorage.setItem(SHARE_KEY,JSON.stringify(obj)); }catch(e){ toast("保存できませんでした"); }
 }
 function openShareMake(){
+  // 工程を1つ選び、渡すフロア・部屋を決めて「追加」で作業リストに積み上げていく
   const unitOpts=procList().map(p=>`<option value="${p.id}">${escapeHtml(p.name)}</option>`).join("");
   const commonOpts=commonProcList().map(p=>`<option value="${p.id}">${escapeHtml(p.name)}</option>`).join("");
-  let h=`<option value="__all__">（全工程）</option>`;
+  let h="";
   if(unitOpts) h+=`<optgroup label="住戸用の工程">${unitOpts}</optgroup>`;
   if(commonOpts) h+=`<optgroup label="共用部用の工程">${commonOpts}</optgroup>`;
-  el("shareProc").innerHTML=h;
+  h+=`<option value="__all__">（全工程まとめて）</option>`;
+  el("shareProcSel").innerHTML=h;
+  const first=procList()[0]||commonProcList()[0];
+  el("shareProcSel").value = first ? first.id : "__all__";
   renderTargets(el("shareTargets"), null);
   shareCandidates=[];
   pendingTaskListData=null;
@@ -4900,12 +4904,23 @@ el("shareImportBtn").addEventListener("click",openTaskListPicker);
 el("drawerShareMake").addEventListener("click",()=>{ closeDrawer(); openShareMake(); });
 el("drawerTaskLists").addEventListener("click",()=>{ closeDrawer(); openTaskListPicker(); });
 el("drawerReportList").addEventListener("click",()=>{ closeDrawer(); openReportList(); });
-el("shareFilterBtn").addEventListener("click",()=>{
-  const pid=el("shareProc").value;
+el("shareAddBtn").addEventListener("click",()=>{
+  const pid=el("shareProcSel").value;
   const ids=getSelectedTargets(el("shareTargets"), null);
-  shareCandidates=collectShareCandidates(pid, ids);
+  const add=collectShareCandidates(pid==="__all__"?[]:[pid], ids);
+  // すでにリストにある部屋×工程は二重に足さない
+  const seen=new Set(shareCandidates.map(c=>c.item.lid+"|"+c.item.pid));
+  let added=0, dup=0;
+  add.forEach(c=>{
+    const k=c.item.lid+"|"+c.item.pid;
+    if(seen.has(k)){ dup++; return; }
+    seen.add(k); shareCandidates.push(c); added++;
+  });
+  if(!added){ toast(dup?"この条件の作業はすべて追加済みです":"この条件の未完了はありません"); return; }
   el("shareCandWrap").style.display="";
   renderShareCandidates();
+  const p=findProcAny(pid);
+  toast(`${p?p.name:"全工程"} ${added}件を追加しました${dup?`（追加済み ${dup}件は省略）`:""}`);
 });
 el("shareSelAll").addEventListener("click",()=>{ shareCandidates.forEach(c=>c.sel=true); renderShareCandidates(); });
 el("shareSelNone").addEventListener("click",()=>{ shareCandidates.forEach(c=>c.sel=false); renderShareCandidates(); });
